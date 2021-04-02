@@ -12,8 +12,13 @@ parser.add_argument('-q',type=float,required=False,help='Quality(crf), default 2
 parser.add_argument('-o',type=str,required=False,help='Output, default input full name (ext. incl.) + ".heic".')
 parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".',action='store_true')
 parser.add_argument('--delete-src',required=False,help='Delete source file switch.',action='store_true')
+#New version of libheif seems to use matrixs accordingly, so I think it's better to use modern bt709 as default.
+parser.add_argument('--mat',type=str,required=False,help='Matrix used in target image, should be either bt709 or bt601 currently.',default='bt709')
 parser.add_argument('INPUTFILE',type=str,help='Input file.',nargs='+')
 parser.parse_args(sys.argv[1:],args)
+
+mat_l=('smpte170m' if args.mat=='bt601' else 'bt709')
+mat_s=('170m' if args.mat=='bt601' else '709')
 
 #If you drop a bunch of files to this script this should supposedly work fine.
 for in_fp in args.INPUTFILE:
@@ -43,15 +48,15 @@ for in_fp in args.INPUTFILE:
 
     #Use swscale to handle weird "subsampled but not mod by 2" images, and use zimg for better conversion if there's no chroma subsampling.
     if probe_sub:
-        scale_filter = r'scale=out_range=pc:flags=lanczos:sws_dither=ed:out_color_matrix=smpte170m'
+        scale_filter = r'scale=out_range=pc:flags=lanczos:sws_dither=ed:out_color_matrix={MAT_L}'.format(MAT_L=mat_l)
     else:
-        scale_filter = r'zscale=r=pc:f=bicubic:d=error_diffusion:m=170m'
+        scale_filter = r'zscale=r=pc:f=bicubic:d=error_diffusion:m={MAT_S}'.format(MAT_S=mat_s)
     
     #Doing actual conversion.
-    subprocess.run(r'ffmpeg -hide_banner -i "{INP}" -vf {SF},format=yuv444p10le -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix=smpte170m:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.hevc" -y'.format(INP=in_fp,SF=scale_filter,Q=args.q),shell=True)
+    subprocess.run(r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {SF},format=yuv444p10le -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.hevc" -y'.format(INP=in_fp,SF=scale_filter,Q=args.q,MAT_L=mat_l),shell=True)
     subprocess.run(r'mp4box -add-image "%temp%\make.heic.hevc":primary -brand heic -new "{OUT}" && del "%temp%\make.heic.hevc"'.format(OUT=out_fp),shell=True)
     if probe_alpha:
-        subprocess.run(r'ffmpeg -hide_banner -i "{INP}" -vf extractplanes=a,{SF},format=gray10le -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix=smpte170m:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.hevc" -y'.format(INP=in_fp,SF=':'.join(scale_filter.split(':')[:-1]),Q=args.q),shell=True)
+        subprocess.run(r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf extractplanes=a,{SF},format=gray10le -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.hevc" -y'.format(INP=in_fp,SF=':'.join(scale_filter.split(':')[:-1]),Q=args.q,MAT_L=mat_l),shell=True)
         subprocess.run(r'mp4box -add-image "%temp%\make.heic.alpha.hevc":ref=auxl,1:alpha -brand heic "{OUT}" && del "%temp%\make.heic.alpha.hevc"'.format(OUT=out_fp),shell=True)
     
     if args.delete_src:
