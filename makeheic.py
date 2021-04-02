@@ -28,7 +28,7 @@ for in_fp in args.INPUTFILE:
     #Use extra characters to hopefully ensure that it's grabbing what I want.
     probe_codec = re.search('Video: [a-z0-9A-Z]+',probe_result,re.M).group()
     #I'm kinda lazy, feel free to add whatever ffmpeg supports.
-    if not probe_codec in ('Video: webp','Video: png','Video: mjpeg','Video: bmp','Video: ppm',): 
+    if not probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm',): 
         raise TypeError(r'input file "{INP}" codec not supported.'.format(INP=in_fp))
 
     probe_pixfmt = re.search(', yuv|, rgb|, bgr|, gbr|, pal8|, gray|, ya',probe_result)
@@ -41,7 +41,7 @@ for in_fp in args.INPUTFILE:
     if probe_pixfmt == ', yuv':
         probe_sub = re.search('4[210]+p',probe_result)
 
-    #Use swscale to handle weird subsampled but not mod by 2 images, and use zimg for better conversion if there's no chroma subsampling.
+    #Use swscale to handle weird "subsampled but not mod by 2" images, and use zimg for better conversion if there's no chroma subsampling.
     if probe_sub:
         scale_filter = r'scale=out_range=pc:flags=lanczos:sws_dither=ed:out_color_matrix=smpte170m'
     else:
