@@ -63,7 +63,7 @@ for in_fp in args.INPUTFILE:
     if not probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm',): 
         raise TypeError(r'input file "{INP}" codec not supported.'.format(INP=in_fp))
 
-    probe_pixfmt = re.search(', yuv|, [a]*rgb[abep0-9]*|, [a]*bgr[abep0-9]*|, [a]*gbr[abep0-9]*|, pal8|, gray|, ya',probe_result)
+    probe_pixfmt = re.search(', yuv|, [a]*rgb[albepf0-9]*|, [a]*bgr[albepf0-9]*|, [a]*gbr[albepf0-9]*|, pal8|, gray|, ya',probe_result)
     probe_alpha = re.search('yuva4|argb|bgra|rgba|gbra|ya[81]',probe_result)
     if not probe_pixfmt:
         raise TypeError(r'input file "{INP}" pixel format not supported.'.format(INP=in_fp))
