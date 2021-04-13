@@ -13,8 +13,8 @@ parser.add_argument('-o',type=str,required=False,help='Output, default input ful
 parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".',action='store_true')
 parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".',action='store_true')
 parser.add_argument('--sws',required=False,help='Force to use swscale switch.',action='store_true')
-parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane.',action='store_true')
-    #New version of libheif seems to use matrixs accordingly, so I think it's better to use modern bt709 as default.
+parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.',action='store_true')
+    #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
 parser.add_argument('--mat',type=str,required=False,help='Matrix used in target image, should be either bt709 or bt601 currently.',default='bt709')
 parser.add_argument('--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.',default=10)
 parser.add_argument('--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"',default='444')
