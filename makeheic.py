@@ -12,7 +12,8 @@ parser.add_argument('-q',type=float,required=False,help='Quality(crf), default 2
 parser.add_argument('-o',type=str,required=False,help='Output, default input full name (ext. incl.) + ".heic".')
 parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".',action='store_true')
 parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".',action='store_true')
-parser.add_argument('--sws',required=False,help='Force use swscale switch.',action='store_true')
+parser.add_argument('--sws',required=False,help='Force to use swscale switch.',action='store_true')
+parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane.',action='store_true')
     #New version of libheif seems to use matrixs accordingly, so I think it's better to use modern bt709 as default.
 parser.add_argument('--mat',type=str,required=False,help='Matrix used in target image, should be either bt709 or bt601 currently.',default='bt709')
 parser.add_argument('--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.',default=10)
@@ -114,7 +115,7 @@ for in_fp in args.INPUTFILE:
 #Doing actual conversion.
     subprocess.run(ff_cmd_img,shell=True)
     subprocess.run(m4b_cmd_img,shell=True)
-    if probe_alpha:
+    if probe_alpha or args.alpha:
         subprocess.run(ff_cmd_a,shell=True)
         subprocess.run(m4b_cmd_a,shell=True)
     #Delete source file or not?
