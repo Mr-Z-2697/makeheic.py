@@ -105,11 +105,12 @@ for in_fp in args.INPUTFILE:
     else:
         scale_filter = r'zscale=r=pc:f=spline36:d=error_diffusion:c=1:m={MAT_S}'.format(MAT_S=mat_s)
     ff_pixfmt='yuv{S}p{D}'.format(S=args.sample,D=(str(args.depth) if bits>8 else '')) + ('le' if bits>8 else '')
+    ff_pixfmt_a='gray{D}'.format(D=(str(args.depth) if bits>8 else '')) + ('le' if bits>8 else '')
     coffs = (-2 if subs_w and subs_h else 1)
 
     ff_cmd_img=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.hevc" -y'.format(INP=in_fp,PD=pad,SF=scale_filter,Q=args.q,MAT_L=mat_l,PF=ff_pixfmt,CO=coffs)
     m4b_cmd_img=r'mp4box -add-image "%temp%\make.heic.hevc":primary -brand heic -new "{OUT}" && del "%temp%\make.heic.hevc"'.format(OUT=out_fp)
-    ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}extractplanes=a,{SF},format=gray10le -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.hevc" -y'.format(INP=in_fp,PD=pad,SF=':'.join(scale_filter.split(':')[:-1]),Q=args.q,MAT_L=mat_l)
+    ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}extractplanes=a,format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.hevc" -y'.format(INP=in_fp,PD=pad,SF=':'.join(scale_filter.split(':')[:-1]),Q=args.q,MAT_L=mat_l,PF=ff_pixfmt_a)
     m4b_cmd_a=r'mp4box -add-image "%temp%\make.heic.alpha.hevc":ref=auxl,1:alpha -brand heic "{OUT}" && del "%temp%\make.heic.alpha.hevc"'.format(OUT=out_fp)
 
 #Doing actual conversion.
