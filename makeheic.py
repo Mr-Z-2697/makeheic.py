@@ -56,7 +56,7 @@ for in_fp in args.INPUTFILE:
 
 #ffprobe
     probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=in_fp),shell=True,stderr=subprocess.PIPE)
-    probe_result = probe.stderr.read().decode('ansi')
+    probe_result = probe.stderr.read().decode()
 
     #Use extra characters to hopefully ensure that it's grabbing what I want.
     probe_codec = re.search('Video: [a-z0-9A-Z]+',probe_result,re.M).group()
