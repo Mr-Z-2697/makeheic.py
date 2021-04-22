@@ -15,14 +15,13 @@ parser.add_argument('--delete-src',required=False,help='Delete source file switc
 parser.add_argument('--sws',required=False,help='Force to use swscale switch.',action='store_true')
 parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.',action='store_true')
     #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
-parser.add_argument('--mat',type=str,required=False,help='Matrix used in target image, should be either bt709 or bt601 currently.',default='bt709')
+parser.add_argument('--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. If a input file is in YUV, it\'s original matrix will be "preserved". ',default='bt709')
 parser.add_argument('--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.',default=10)
 parser.add_argument('--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"',default='444')
 parser.add_argument('INPUTFILE',type=str,help='Input file.',nargs='+')
 parser.parse_args(sys.argv[1:],args)
 
-mat_l=('smpte170m' if args.mat=='bt601' else 'bt709')
-mat_s=('170m' if args.mat=='bt601' else '709')
+
 
 if args.sample == '444':
     subs_w=0
@@ -58,6 +57,8 @@ for in_fp in args.INPUTFILE:
         out_fp = args.o[i]
         i+=1
 
+    mat_l=('smpte170m' if args.mat=='bt601' else 'bt709')
+    mat_s=('170m' if args.mat=='bt601' else '709')
 
 #ffprobe
     probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=in_fp),shell=True,stderr=subprocess.PIPE)
@@ -79,6 +80,8 @@ for in_fp in args.INPUTFILE:
 
     if probe_pixfmt == ', yuv':
         probe_sub = re.search('4[4210]+p',probe_result).group(0)
+        probe_mat = re.search('bt470bg|bt709',probe_result)
+
     if probe_sub in ['444p',None]:
         probe_subs_w=0
         probe_subs_h=0
@@ -88,6 +91,10 @@ for in_fp in args.INPUTFILE:
     else:
         probe_subs_w=1
         probe_subs_s=1
+
+    if probe_mat:
+        mat_l=('smpte170m' if probe_mat.group(0)=='bt470bg' else 'bt709')
+        mat_s=('170m' if probe_mat.group(0)=='bt470bg' else '709')
 
     probe_resolution = re.search('[0-9]+x[0-9]+',probe_result).group(0).split('x')
     probe_res_w=int(probe_resolution[0])
@@ -106,7 +113,7 @@ for in_fp in args.INPUTFILE:
     #Use swscale to handle weird "subsampled but not mod by 2" images, and use zimg for better conversion if there's no chroma re-subsampling.
     c_resubs = (probe_subs_w != subs_w) or (probe_subs_h != subs_h)
     if c_resubs or args.sws:
-        scale_filter = r'scale=out_range=pc:flags=spline:sws_dither=ed:out_v_chr_pos=127:out_h_chr_pos=127:out_color_matrix={MAT_L}'.format(MAT_L=mat_l)
+        scale_filter = r'scale=out_range=pc:flags=spline:sws_dither=ed:out_v_chr_pos=0:out_h_chr_pos=0:out_color_matrix={MAT_L}'.format(MAT_L=mat_l)
     else:
         scale_filter = r'zscale=r=pc:f=spline36:d=error_diffusion:c=1:m={MAT_S}'.format(MAT_S=mat_s)
     ff_pixfmt='yuv{S}p{D}'.format(S=args.sample,D=(str(args.depth) if bits>8 else '')) + ('le' if bits>8 else '')
