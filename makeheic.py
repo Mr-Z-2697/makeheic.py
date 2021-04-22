@@ -48,17 +48,17 @@ else:
 
 
 #If you drop a bunch of files to this script this should supposedly work fine.
+if (args.o != None) and (len(args.INPUTFILE) != len(args.o)):
+    raise TypeError('the number of input and output should match if output is specified.')
 i=0
 for in_fp in args.INPUTFILE:
     if args.o == None:
         out_fp = in_fp + '.heic'
     else:
-        if len(args.INPUTFILE) == len(args.o):
-            out_fp = args.o[i]
-            i+=1
-        else:
-            raise TypeError('the number of inputs and outputs should match if output is specified.')
-    
+        out_fp = args.o[i]
+        i+=1
+
+
 #ffprobe
     probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=in_fp),shell=True,stderr=subprocess.PIPE)
     probe_result = probe.stderr.read().decode()
