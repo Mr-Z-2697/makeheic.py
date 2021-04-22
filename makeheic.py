@@ -9,7 +9,7 @@ class args:
 #Arguments, ordinary stuff I guess.
 parser = argparse.ArgumentParser(description='HEIC encode script using ffmpeg & mp4box.',formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('-q',type=float,required=False,help='Quality(crf), default 21.',default=21)
-parser.add_argument('-o',type=str,required=False,help='Output, default input full name (ext. incl.) + ".heic".')
+parser.add_argument('-o',type=str,required=False,help='Output(s), default input full name (ext. incl.) + ".heic".',nargs='*')
 parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".',action='store_true')
 parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".',action='store_true')
 parser.add_argument('--sws',required=False,help='Force to use swscale switch.',action='store_true')
@@ -48,12 +48,17 @@ else:
 
 
 #If you drop a bunch of files to this script this should supposedly work fine.
+i=0
 for in_fp in args.INPUTFILE:
     if args.o == None:
         out_fp = in_fp + '.heic'
     else:
-        out_fp = args.o
-
+        if len(args.INPUTFILE) == len(args.o):
+            out_fp = args.o[i]
+            i+=1
+        else:
+            raise TypeError('the number of inputs and outputs should match if output is specified.')
+    
 #ffprobe
     probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=in_fp),shell=True,stderr=subprocess.PIPE)
     probe_result = probe.stderr.read().decode()
