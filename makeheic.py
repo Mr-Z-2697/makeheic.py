@@ -77,6 +77,7 @@ for in_fp in args.INPUTFILE:
     else:
         probe_pixfmt = probe_pixfmt.group()
     probe_sub = None
+    probe_mat = False
 
     if probe_pixfmt == ', yuv':
         probe_sub = re.search('4[4210]+p',probe_result).group(0)
