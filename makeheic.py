@@ -114,7 +114,7 @@ for in_fp in args.INPUTFILE:
     #Use swscale to handle weird "subsampled but not mod by 2" images, and use zimg for better conversion if there's no chroma re-subsampling.
     c_resubs = (probe_subs_w != subs_w) or (probe_subs_h != subs_h)
     if c_resubs or args.sws:
-        scale_filter = r'scale=out_range=pc:flags=spline:sws_dither=ed:out_v_chr_pos=0:out_h_chr_pos=0:out_color_matrix={MAT_L}'.format(MAT_L=mat_l)
+        scale_filter = r'scale=out_range=pc:flags=spline:sws_dither=ed:out_v_chr_pos={VC}:out_h_chr_pos={HC}:out_color_matrix={MAT_L}'.format(MAT_L=mat_l,VC=(127 if subs_h else 0),HC=(127 if subs_w else 0))
     else:
         scale_filter = r'zscale=r=pc:f=spline36:d=error_diffusion:c=1:m={MAT_S}'.format(MAT_S=mat_s)
     ff_pixfmt='yuv{S}p{D}'.format(S=args.sample,D=(str(args.depth) if bits>8 else '')) + ('le' if bits>8 else '')
