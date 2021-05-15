@@ -14,6 +14,7 @@ parser.add_argument('-s',required=False,help='Silent mode, disables "enter to ex
 parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".',action='store_true')
 parser.add_argument('--sws',required=False,help='Force to use swscale switch.',action='store_true')
 parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.',action='store_true')
+parser.add_argument('--no-icc',required=False,help='Ignore icc profile of source image switch.',action='store_true')
     #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
 parser.add_argument('--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. If a input file is in YUV, it\'s original matrix will be "preserved". ',default='bt709')
 parser.add_argument('--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.',default=10)
@@ -60,7 +61,12 @@ for in_fp in args.INPUTFILE:
     mat_l=('smpte170m' if args.mat=='bt601' else 'bt709')
     mat_s=('170m' if args.mat=='bt601' else '709')
 
-#ffprobe
+#ffprobe&imagemagick
+    if not args.no_icc:
+        hasicc = not subprocess.run(r'magick "{INP}" "{OUT}"'.format(INP=in_fp,OUT=r'%temp%\make.heic.icc'),shell=True).returncode
+    else:
+        hasicc = False
+    
     probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=in_fp),shell=True,stderr=subprocess.PIPE)
     probe_result = probe.stderr.read().decode()
 
@@ -104,6 +110,7 @@ for in_fp in args.INPUTFILE:
     probe_h_odd = probe_res_h % 2
 
 #Determine command line parameters
+    icc_opt = r':icc_path=make.heic.icc' if hasicc else ''
     #Use padding if output is subsampled and image w/h not mod by 2
     pad_w=probe_w_odd and subs_w
     pad_h=probe_h_odd and subs_h
@@ -122,9 +129,12 @@ for in_fp in args.INPUTFILE:
     coffs = (-2 if subs_w and subs_h else 1)
 
     ff_cmd_img=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.hevc" -y'.format(INP=in_fp,PD=pad,SF=scale_filter,Q=args.q,MAT_L=mat_l,PF=ff_pixfmt,CO=coffs)
-    m4b_cmd_img=r'mp4box -add-image "%temp%\make.heic.hevc":primary -brand heic -new "{OUT}" && del "%temp%\make.heic.hevc"'.format(OUT=out_fp)
+
+    m4b_cmd_img=r'cd /d %temp% && mp4box -add-image "make.heic.hevc":primary{ICC} -brand heic -new "{OUT}" && del "make.heic.hevc"'.format(OUT=out_fp,ICC=icc_opt)
+
     ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}extractplanes=a,format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.hevc" -y'.format(INP=in_fp,PD=pad,SF=':'.join(scale_filter.split(':')[:-1]),Q=args.q,MAT_L=mat_l,PF=ff_pixfmt_a)
-    m4b_cmd_a=r'mp4box -add-image "%temp%\make.heic.alpha.hevc":ref=auxl,1:alpha -brand heic "{OUT}" && del "%temp%\make.heic.alpha.hevc"'.format(OUT=out_fp)
+
+    m4b_cmd_a=r'cd /d %temp% && mp4box -add-image "make.heic.alpha.hevc":ref=auxl,1:alpha -brand heic "{OUT}" && del "make.heic.alpha.hevc"'.format(OUT=out_fp)
 
 #Doing actual conversion.
     subprocess.run(ff_cmd_img,shell=True)
@@ -132,6 +142,8 @@ for in_fp in args.INPUTFILE:
     if probe_alpha or args.alpha:
         subprocess.run(ff_cmd_a,shell=True)
         subprocess.run(m4b_cmd_a,shell=True)
+    if hasicc:
+        subprocess.run(r'del %temp%\make.heic.icc',shell=True)
     #Delete source file or not?
     if args.delete_src:
         os.remove(in_fp)
