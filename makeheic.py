@@ -97,7 +97,7 @@ for in_fp in args.INPUTFILE:
         probe_subs_h=0
     else:
         probe_subs_w=1
-        probe_subs_s=1
+        probe_subs_h=1
 
     if probe_mat:
         mat_l=('smpte170m' if probe_mat.group(0)=='bt470bg' else 'bt709')
