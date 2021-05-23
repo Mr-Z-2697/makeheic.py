@@ -52,11 +52,13 @@ if (args.o != None) and (len(args.INPUTFILE) != len(args.o)):
     raise TypeError('the number of input and output should match if output is specified.')
 i=0
 for in_fp in args.INPUTFILE:
+    in_fp = os.path.abspath(in_fp)
     if args.o == None:
         out_fp = in_fp + '.heic'
     else:
         out_fp = args.o[i]
         i+=1
+    out_fp = os.path.abspath(out_fp)
 
     mat_l=('smpte170m' if args.mat=='bt601' else 'bt709')
     mat_s=('170m' if args.mat=='bt601' else '709')
