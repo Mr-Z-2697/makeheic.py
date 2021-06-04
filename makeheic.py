@@ -45,7 +45,7 @@ elif args.depth == 12:
 else:
     raise TypeError('output bitdepth not supported')
 
-
+pid = os.getpid()
 
 #If you drop a bunch of files to this script this should supposedly work fine.
 if (args.o != None) and (len(args.INPUTFILE) != len(args.o)):
@@ -65,7 +65,7 @@ for in_fp in args.INPUTFILE:
 
 #ffprobe&imagemagick
     if not args.no_icc:
-        hasicc = not subprocess.run(r'magick "{INP}" "{OUT}"'.format(INP=in_fp,OUT=r'%temp%\make.heic.icc'),shell=True).returncode
+        hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=in_fp,OUT=r'%temp%\make.heic',PID=pid),shell=True).returncode
     else:
         hasicc = False
     
@@ -112,7 +112,7 @@ for in_fp in args.INPUTFILE:
     probe_h_odd = probe_res_h % 2
 
 #Determine command line parameters
-    icc_opt = r':icc_path=make.heic.icc' if hasicc else ''
+    icc_opt = r':icc_path=make.heic.{PID}.icc'.format(PID=pid) if hasicc else ''
     #Use padding if output is subsampled and image w/h not mod by 2
     pad_w=probe_w_odd and subs_w
     pad_h=probe_h_odd and subs_h
@@ -130,13 +130,13 @@ for in_fp in args.INPUTFILE:
     ff_pixfmt_a='gray{D}'.format(D=(str(args.depth) if bits>8 else '')) + ('le' if bits>8 else '')
     coffs = (-2 if subs_w and subs_h else 1)
 
-    ff_cmd_img=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.hevc" -y'.format(INP=in_fp,PD=pad,SF=scale_filter,Q=args.q,MAT_L=mat_l,PF=ff_pixfmt,CO=coffs)
+    ff_cmd_img=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.{PID}.hevc" -y'.format(INP=in_fp,PD=pad,SF=scale_filter,Q=args.q,MAT_L=mat_l,PF=ff_pixfmt,CO=coffs,PID=pid)
 
-    m4b_cmd_img=r'cd /d %temp% && mp4box -add-image "make.heic.hevc":primary{ICC} -brand heic -new "{OUT}" && del "make.heic.hevc"'.format(OUT=out_fp,ICC=icc_opt)
+    m4b_cmd_img=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":primary{ICC} -brand heic -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=out_fp,ICC=icc_opt,PID=pid)
 
-    ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}extractplanes=a,format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.hevc" -y'.format(INP=in_fp,PD=pad,SF=':'.join(scale_filter.split(':')[:-1]),Q=args.q,MAT_L=mat_l,PF=ff_pixfmt_a)
+    ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}extractplanes=a,format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.{PID}.hevc" -y'.format(INP=in_fp,PD=pad,SF=':'.join(scale_filter.split(':')[:-1]),Q=args.q,MAT_L=mat_l,PF=ff_pixfmt_a,PID=pid)
 
-    m4b_cmd_a=r'cd /d %temp% && mp4box -add-image "make.heic.alpha.hevc":ref=auxl,1:alpha -brand heic "{OUT}" && del "make.heic.alpha.hevc"'.format(OUT=out_fp)
+    m4b_cmd_a=r'cd /d %temp% && mp4box -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha -brand heic "{OUT}" && del "make.heic.alpha.{PID}.hevc"'.format(OUT=out_fp,PID=pid)
 
 #Doing actual conversion.
     subprocess.run(ff_cmd_img,shell=True)
@@ -145,7 +145,7 @@ for in_fp in args.INPUTFILE:
         subprocess.run(ff_cmd_a,shell=True)
         subprocess.run(m4b_cmd_a,shell=True)
     if hasicc:
-        subprocess.run(r'del %temp%\make.heic.icc',shell=True)
+        subprocess.run(r'del %temp%\make.heic.{PID}.icc'.format(PID=pid),shell=True)
     #Delete source file or not?
     if args.delete_src:
         os.remove(in_fp)
