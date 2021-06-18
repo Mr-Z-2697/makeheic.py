@@ -14,6 +14,7 @@ parser.add_argument('-s',required=False,help='Silent mode, disables "enter to ex
 parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".',action='store_true')
 parser.add_argument('--sws',required=False,help='Force to use swscale switch.',action='store_true')
 parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.',action='store_true')
+parser.add_argument('--no-alpha',required=False,help='Ignore alpha plane switch.',action='store_true')
 parser.add_argument('--no-icc',required=False,help='Ignore icc profile of source image switch.',action='store_true')
     #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
 parser.add_argument('--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. If a input file is in YUV, it\'s original matrix will be "preserved". ',default='bt709')
@@ -141,7 +142,7 @@ for in_fp in args.INPUTFILE:
 #Doing actual conversion.
     subprocess.run(ff_cmd_img,shell=True)
     subprocess.run(m4b_cmd_img,shell=True)
-    if probe_alpha or args.alpha:
+    if (probe_alpha or args.alpha) and not args.no_alpha:
         subprocess.run(ff_cmd_a,shell=True)
         subprocess.run(m4b_cmd_a,shell=True)
     if hasicc:
