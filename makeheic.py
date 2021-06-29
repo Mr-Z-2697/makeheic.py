@@ -76,7 +76,7 @@ for in_fp in args.INPUTFILE:
     #Use extra characters to hopefully ensure that it's grabbing what I want.
     probe_codec = re.search('Video: [a-z0-9A-Z]+',probe_result,re.M).group()
     #I'm kinda lazy, feel free to add whatever ffmpeg supports.
-    if not probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm',): 
+    if not probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm','tiff'): 
         raise TypeError(r'input file "{INP}" codec not supported.'.format(INP=in_fp))
 
     probe_pixfmt = re.search(', yuv|, [a]*rgb[albepf0-9]*|, [a]*bgr[albepf0-9]*|, [a]*gbr[albepf0-9]*|, pal8|, gray|, ya',probe_result)
