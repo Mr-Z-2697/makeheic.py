@@ -45,11 +45,11 @@ class makeheic:
 
     def run_probe(self):
         if not self.noicc:
-            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=in_fp,   OUT=r'%temp%\make.heic',PID=pid),shell=True).returncode
+            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=self.in_fp,OUT=r'%temp%\make.heic',PID=self.pid),shell=True).returncode
         else:
             self.hasicc = False
 
-        probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=in_fp),shell=True,   stderr=subprocess.PIPE)
+        probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=self.in_fp),shell=True,   stderr=subprocess.PIPE)
         probe_result = probe.stderr.read().decode()
 
         #Use extra characters to hopefully ensure that it's grabbing what I want.
@@ -85,8 +85,8 @@ class makeheic:
             self.mat_l=('smpte170m' if probe_mat.group(0)=='bt470bg' else 'bt709')
             self.mat_s=('170m' if probe_mat.group(0)=='bt470bg' else '709')
         else:
-            self.mat_l=('smpte170m' if args.mat=='bt601' else 'bt709')
-            self.mat_s=('170m' if args.mat=='bt601' else '709')
+            self.mat_l=('smpte170m' if self.mat=='bt601' else 'bt709')
+            self.mat_s=('170m' if self.mat=='bt601' else '709')
 
         probe_resolution = re.search('[0-9]+x[0-9]+',probe_result).group(0).split('x')
         self.probe_res_w=int(probe_resolution[0])
