@@ -45,11 +45,11 @@ class makeheic:
 
     def run_probe(self):
         if not self.noicc:
-            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=in_fp,   OUT=r'%temp%\make.heic',PID=pid),shell=True).returncode
+            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=self.in_fp,OUT=r'%temp%\make.heic',PID=self.pid),shell=True).returncode
         else:
             self.hasicc = False
 
-        probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=in_fp),shell=True,   stderr=subprocess.PIPE)
+        probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=self.in_fp),shell=True,   stderr=subprocess.PIPE)
         probe_result = probe.stderr.read().decode()
 
         #Use extra characters to hopefully ensure that it's grabbing what I want.
