@@ -10,7 +10,7 @@ class args:
 
 
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,noicc=False,mat='bt709',depth=10,sample='444',pid=choice(range(1000,10000))):
+    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,noicc=False,mat=None,depth=10,sample='444',pid=choice(range(1000,10000))):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -45,11 +45,11 @@ class makeheic:
 
     def run_probe(self):
         if not self.noicc:
-            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=self.in_fp,OUT=r'%temp%\make.heic',PID=self.pid),shell=True).returncode
+            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=in_fp,   OUT=r'%temp%\make.heic',PID=pid),shell=True).returncode
         else:
             self.hasicc = False
 
-        probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=self.in_fp),shell=True,   stderr=subprocess.PIPE)
+        probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=in_fp),shell=True,   stderr=subprocess.PIPE)
         probe_result = probe.stderr.read().decode()
 
         #Use extra characters to hopefully ensure that it's grabbing what I want.
@@ -58,7 +58,7 @@ class makeheic:
         if not self.probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm','tiff'): 
             raise TypeError(r'input file "{INP}" codec not supported.'.format(INP=in_fp))
 
-        self.probe_pixfmt = re.search(', yuv|, [a]*rgb[albepf0-9]*|, [a]*bgr[albepf0-9]*|, [a]*gbr[albepf0-9]*|,     pal8|, gray|, ya',probe_result)
+        self.probe_pixfmt = re.search(', yuv|, [a]*rgb[albepf0-9]*|, [a]*bgr[albepf0-9]*|, [a]*gbr[albepf0-9]*|, pal8|, gray|, ya',probe_result)
         self.probe_alpha = re.search('yuva4|argb|bgra|rgba|gbra|ya[81]',probe_result)
         if not self.probe_pixfmt:
             raise TypeError(r'input file "{INP}" pixel format not supported.'.format(INP=in_fp))
@@ -81,7 +81,7 @@ class makeheic:
             self.probe_subs_w=1
             self.probe_subs_h=1
 
-        if probe_mat:
+        if probe_mat and self.mat==None:
             self.mat_l=('smpte170m' if probe_mat.group(0)=='bt470bg' else 'bt709')
             self.mat_s=('170m' if probe_mat.group(0)=='bt470bg' else '709')
         else:
@@ -154,7 +154,7 @@ if __name__ == '__main__':
     parser.add_argument('--no-alpha',required=False,help='Ignore alpha plane switch.',action='store_true')
     parser.add_argument('--no-icc',required=False,help='Ignore icc profile of source image switch.',action='store_true')
     #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
-    parser.add_argument('--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. If a input file is in YUV, it\'s original matrix will be "preserved". ',default='bt709')
+    parser.add_argument('--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. If a input file is in YUV, it\'s original matrix will be "preserved". ',default=None)
     parser.add_argument('--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.',default=10)
     parser.add_argument('--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"',default='444')
     parser.add_argument('INPUTFILE',type=str,help='Input file.',nargs='+')
