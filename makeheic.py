@@ -184,7 +184,7 @@ if __name__ == '__main__':
     parser.add_argument('-q',type=int,required=False,help='Quality(crf), default 21.\n ',default=21)
     parser.add_argument('-o',type=str,required=False,help='Output(s), default input full name (ext. incl.) + ".heic".\n ',nargs='*')
     parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".\n ',action='store_true')
-    parser.add_argument('-g',required=False,help='Grid mode and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and please use the f___ing even numbers, that just make things easier. \nMany softwares can\'t open 10bit gridded images, you can try to upgrade them.\n ',default=False)
+    parser.add_argument('-g',required=False,help='Grid mode switch and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and don\'t use the f___ing odd numbers with yuv420, things will be easier. \nMany softwares can\'t open 10bit gridded images, you can try to upgrade them.\n ',default=False)
     parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".\n ',action='store_true')
     parser.add_argument('--sws',required=False,help='Force to use swscale switch.\n ',action='store_true')
     parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.\n ',action='store_true')
@@ -198,6 +198,8 @@ if __name__ == '__main__':
     parser.add_argument('INPUTFILE',type=str,help='Input file.',nargs='+')
     parser.parse_args(sys.argv[1:],args)
     pid = os.getpid()
+    if args.g=='False':
+        args.g=False
 
     #If you drop a bunch of files to this script this should supposedly work fine.
     if (args.o != None) and (len(args.INPUTFILE) != len(args.o)):
