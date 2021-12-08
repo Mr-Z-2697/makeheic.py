@@ -11,7 +11,7 @@ class args:
 
 
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000))):
+    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000))):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -19,6 +19,7 @@ class makeheic:
         self.sws = sws
         self.alpha = alpha
         self.noalpha = noalpha
+        self.acrf = acrf if acrf != None else crf
         self.noicc = noicc
         self.mat = mat
         self.depth = depth
@@ -136,7 +137,7 @@ class makeheic:
 
             self.m4b_cmd_img=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -brand heic -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h))
 
-            self.ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}extractplanes=a,format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=':'.join(scale_filter.split(':')[:-1]),Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt_a,PID=self.pid)
+            self.ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265    -preset 6 -crf {Q} -x265-params    no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}extractplanes=a,format={PF2} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf)
 
             self.m4b_cmd_a=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC}  -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} -brand heic -new "{OUT}" && del "make.heic.alpha.{PID}.hevc"'.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h))
         else:
@@ -156,11 +157,12 @@ class makeheic:
         
 
     def encode(self):
-        subprocess.run(self.ff_cmd_img,shell=True)
+        
         if (self.probe_alpha or self.alpha) and not self.noalpha:
             subprocess.run(self.ff_cmd_a,shell=True)
             subprocess.run(self.m4b_cmd_a,shell=True)
         else:
+            subprocess.run(self.ff_cmd_img,shell=True)
             subprocess.run(self.m4b_cmd_img,shell=True)
         if self.hasicc:
             subprocess.run(r'del %temp%\make.heic.{PID}.icc'.format(PID=self.pid),shell=True)
@@ -187,6 +189,7 @@ if __name__ == '__main__':
     parser.add_argument('--sws',required=False,help='Force to use swscale switch.\n ',action='store_true')
     parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.\n ',action='store_true')
     parser.add_argument('--no-alpha',required=False,help='Ignore alpha plane switch.\n ',action='store_true')
+    parser.add_argument('--alphaq',type=int,required=False,help='Alpha quality(crf), default None(same as -q).\n ',default=None)
     parser.add_argument('--no-icc',required=False,help='Ignore icc profile of source image switch.\n ',action='store_true')
     #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
     parser.add_argument('--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. \nIf a input file is in YUV, it\'s original matrix will be "preserved" if this option isn\'t set.\n ',default=None)
@@ -208,7 +211,7 @@ if __name__ == '__main__':
             out_fp = args.o[i]
             i+=1
         out_fp = os.path.abspath(out_fp)
-        heic = makeheic(in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.no_icc,args.mat,args.depth,args.sample,args.g,pid)
+        heic = makeheic(in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,pid)
         heic.make()
         
     if not args.s:
