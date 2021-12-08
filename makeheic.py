@@ -192,9 +192,9 @@ if __name__ == '__main__':
     parser.add_argument('--alphaq',type=int,required=False,help='Alpha quality(crf), default None(same as -q).\n ',default=None)
     parser.add_argument('--no-icc',required=False,help='Ignore icc profile of source image switch.\n ',action='store_true')
     #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
-    parser.add_argument('--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. \nIf a input file is in YUV, it\'s original matrix will be "preserved" if this option isn\'t set.\n ',default=None)
-    parser.add_argument('--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.\n ',default=10)
-    parser.add_argument('--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"\n ',default='444')
+    parser.add_argument('-m','--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. \nIf a input file is in YUV, it\'s original matrix will be "preserved" if this option isn\'t set.\n ',default=None)
+    parser.add_argument('-b','--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.\n ',default=10)
+    parser.add_argument('-c','--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"\n ',default='444')
     parser.add_argument('INPUTFILE',type=str,help='Input file.',nargs='+')
     parser.parse_args(sys.argv[1:],args)
     pid = os.getpid()
