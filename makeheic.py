@@ -112,7 +112,6 @@ class makeheic:
             self.g_padded_w=self.g_columns*self.gw
             self.g_padded_h=self.g_rows*self.gh
             self.items=self.g_columns*self.g_rows
-            
 
     def cmd_line_gen(self):
         icc_opt = r':icc_path=make.heic.{PID}.icc'.format(PID=self.pid) if self.hasicc else ''
@@ -148,13 +147,14 @@ class makeheic:
                 refs+=f'ref=dimg,{x}:'
 
             self.m4b_cmd_img=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":time=-1 -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -brand heic -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs)
+            
+            self.ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v libx265    -preset 6 -crf {Q} -x265-params    keyint=1:no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.{PID}.hevc" -y -map v:0 -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,extractplanes=a,format={PF2} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params keyint=1:no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows))
 
-            self.noalpha=True
+            refs2=''
+            for x in range(self.items+2,self.items*2+2):
+                refs2+=f'ref=dimg,{x}:'
 
-            #self.ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}extractplanes=a,format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params no-sao=1:selective-sao=0:ref=1:bframes=0:aq-mode=1:psy-rd=2:psy-rdoq=8:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1 "%temp%\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=':'.join(scale_filter.split(':')[:-1]),Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt_a,PID=self.pid)
-
-            #self.m4b_cmd_a=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC}  -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} -brand heic -new "{OUT}" && del "make.heic.alpha.{PID}.hevc"'.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h))
-        
+            self.m4b_cmd_a=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":time=-1 -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1 -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}:ref=auxl,{GID}:alpha:image-size={WxH} -brand heic -new "{OUT}" && del "make.heic.alpha.{PID}.hevc"'.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,GID=self.items+1,REFS2=refs2)
 
     def encode(self):
         
@@ -184,7 +184,7 @@ if __name__ == '__main__':
     parser.add_argument('-q',type=int,required=False,help='Quality(crf), default 21.\n ',default=21)
     parser.add_argument('-o',type=str,required=False,help='Output(s), default input full name (ext. incl.) + ".heic".\n ',nargs='*')
     parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".\n ',action='store_true')
-    parser.add_argument('-g',required=False,help='Grid mode and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and please use the f___ing even numbers, that just make things easier. \nAlpha channel isn\'t supported, and many softwares can\'t open 10bit gridded images.\n ',default=False)
+    parser.add_argument('-g',required=False,help='Grid mode and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and please use the f___ing even numbers, that just make things easier. \nMany softwares can\'t open 10bit gridded images, you can try to upgrade them.\n ',default=False)
     parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".\n ',action='store_true')
     parser.add_argument('--sws',required=False,help='Force to use swscale switch.\n ',action='store_true')
     parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.\n ',action='store_true')
