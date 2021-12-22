@@ -134,24 +134,18 @@ class makeheic:
             scale_filter = r'zscale=r=pc:f=spline36:d=error_diffusion:c=1:m={MAT_S}'.format(MAT_S=self.mat_s)
         ff_pixfmt='yuv{S}p{D}'.format(S=self.sample,D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '')
         ff_pixfmt_a='gray{D}'.format(D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '')
-        if self.co == None:
-            coffs = (-2 if self.subs_w and self.subs_h else 1)
-            if int(self.crf) >= 26:
-                coffs += 5
-        else:
-            coffs = self.co
-        if self.psy_rdoq == None:
-            if self.crf >= 26:
-                prdo = 1
+        coffs = (-2 if self.subs_w and self.subs_h else 1)
+        if self.co != None:
+            if self.co[0] == '+':
+                coffs += int(self.co[1:])
             else:
-                prdo = 8
+                coffs = int(self.co)
+        if self.psy_rdoq == None:
+            prdo = 8
         else:
             prdo = self.psy_rdoq
         if self.sao == None:
-            if self.crf >= 26:
-                sao = 1
-            else:
-                sao = 0
+            sao = 0
         else:
             sao = self.sao
         if not self.grid:
@@ -218,9 +212,10 @@ if __name__ == '__main__':
     parser.add_argument('-m','--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. \nIf a input file is in YUV, it\'s original matrix will be "preserved" if this option isn\'t set.\n ',default=None)
     parser.add_argument('-b','--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.\n ',default=10)
     parser.add_argument('-c','--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"\n ',default='444')
-    parser.add_argument('--sao',required=False,help='Turn SAO off or on, 0 or 1, 0 is off, 1 is on, default 0 for crf<26, 1 for crf>=26.\n ',default=None)
-    parser.add_argument('--coffs',required=False,help='Chroma QP offset, [-12..12]. Default -2 for 420, 1 for 444, then +5 if crf>=26.\n ',default=None)
-    parser.add_argument('--psy-rdoq',required=False,help='Same with x265, default 8 for crf<26, 1 for crf>=26.\n ',default=None)
+    parser.add_argument('--sao',required=False,help='Turn SAO off or on, 0 or 1, 0 is off, 1 is on, default 0.\n ',default=None)
+    parser.add_argument('--coffs',required=False,help='Chroma QP offset, [-12..12]. Default -2 for 420, 1 for 444. \nUse +n for offset to default(n can be negative).\n ',default=None)
+    parser.add_argument('--psy-rdoq',required=False,help='Same with x265, default 8.\n ',default=None)
+    parser.add_argument('-sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',action='store_true')
     parser.add_argument('-x265-params',required=False,help='Custom x265 parameters, in ffmpeg style. Appends to parameters set by above arguments.\n ',default='')
     parser.add_argument('INPUTFILE',type=str,help='Input file.',nargs='+')
     parser.parse_args(sys.argv[1:],args)
@@ -240,6 +235,10 @@ if __name__ == '__main__':
             out_fp = args.o[i]
             i+=1
         out_fp = os.path.abspath(out_fp)
+        if args.sp:
+            args.sao = 1
+            args.coffs = '+2'
+            args.psy_rdoq = 1
         heic = makeheic(in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,pid,args.sao,args.coffs,args.psy_rdoq,args.x265_params)
         heic.make()
         
