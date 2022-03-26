@@ -5,7 +5,7 @@ A crappy script that uses ffmpeg &amp; mp4box to convert pictures to heic.
 
 ## Requirements:
 1. FFmpeg & FFprobe with libx265 biult-in.
-2. Mp4box (if you need to use alpha channel & icc you may need dev version, for the moment)
+2. Mp4box(GPAC) 2.0+
 3. ImageMagick (not necessary if you don't care about icc)
 
 ## Usage:
