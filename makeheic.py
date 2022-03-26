@@ -227,6 +227,7 @@ if __name__ == '__main__':
     parser.add_argument('--psy-rdoq',required=False,help='Same with x265, default 8.\n ',default=None)
     parser.add_argument('-sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',action='store_true')
     parser.add_argument('-x265-params',required=False,help='Custom x265 parameters, in ffmpeg style. Appends to parameters set by above arguments.\n ',default='')
+    parser.add_argument('--kfs',required=False,help='Keep folder structure.\n ',default='True',action=argparse.BooleanOptionalAction)
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
     pid = os.getpid()
@@ -259,14 +260,18 @@ if __name__ == '__main__':
 
             if not os.path.exists(out_fp):
                 os.mkdir(out_fp)
-            for subdir in subdirs:
-                newdir=str(subdir).replace(in_fp,out_fp)
-                if not os.path.exists(newdir):
-                    os.mkdir(newdir)
+            if args.kfs:
+                for subdir in subdirs:
+                    newdir=str(subdir).replace(in_fp,out_fp)
+                    if not os.path.exists(newdir):
+                        os.mkdir(newdir)
 
             for file in files:
                 in_fp_sf=str(file)
-                out_fp_sf='.'.join(in_fp_sf.replace(in_fp,out_fp).split('.')[:-1])+'.heic'
+                if args.kfs:
+                    out_fp_sf='.'.join(in_fp_sf.replace(in_fp,out_fp).split('.')[:-1])+'.heic'
+                else:
+                    out_fp_sf=out_fp+'\\'+file.stem+'.heic'
                 heic = makeheic(in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,pid,args.sao,args.coffs,args.psy_rdoq,args.x265_params)
                 if not heic.make():
                     fail+=1
