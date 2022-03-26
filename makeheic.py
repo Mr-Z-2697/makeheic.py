@@ -4,6 +4,7 @@ import subprocess
 import re
 import math
 from random import choice
+import pathlib
 
 class args:
     pass
@@ -69,15 +70,21 @@ class makeheic:
         probe_result = probe.stderr.read().decode()
 
         #Use extra characters to hopefully ensure that it's grabbing what I want.
-        self.probe_codec = re.search('Video: [a-z0-9A-Z]+',probe_result,re.M).group()
-        #I'm kinda lazy, feel free to add whatever ffmpeg supports.
-        if not self.probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm','tiff'): 
-            raise TypeError(r'input file "{INP}" codec not supported.'.format(INP=in_fp))
+        self.probe_codec = re.search('Video: [a-z0-9A-Z]+',probe_result,re.M)
+        if self.probe_codec:
+            self.probe_codec=self.probe_codec.group()
+            #I'm kinda lazy, feel free to add whatever ffmpeg supports.
+            if not self.probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm','tiff'): 
+                print(r'input file "{INP}" codec not supported.'.format(INP=in_fp))
+                return False
+        else:
+            return False
 
         self.probe_pixfmt = re.search(', yuv|, [a]*rgb[albepf0-9]*|, [a]*bgr[albepf0-9]*|, [a]*gbr[albepf0-9]*|, pal8|, gray|, ya',probe_result)
         self.probe_alpha = re.search('yuva4|argb|bgra|rgba|gbra|ya[81]',probe_result)
         if not self.probe_pixfmt:
-            raise TypeError(r'input file "{INP}" pixel format not supported.'.format(INP=in_fp))
+            print(r'input file "{INP}" pixel format not supported.'.format(INP=in_fp))
+            return False
         else:
             self.probe_pixfmt = self.probe_pixfmt.group()
         probe_sub = None
@@ -116,6 +123,7 @@ class makeheic:
             self.g_padded_w=self.g_columns*self.gw
             self.g_padded_h=self.g_rows*self.gh
             self.items=self.g_columns*self.g_rows
+        return True
 
     def cmd_line_gen(self):
         icc_opt = r':icc_path=make.heic.{PID}.icc'.format(PID=self.pid) if self.hasicc else ''
@@ -188,9 +196,11 @@ class makeheic:
             os.remove(self.in_fp)
 
     def make(self):
-        self.run_probe()
+        if not self.run_probe():
+            return False
         self.cmd_line_gen()
         self.encode()
+        return True
 
 
 
@@ -199,7 +209,7 @@ if __name__ == '__main__':
     #Arguments, ordinary stuff I guess.
     parser = argparse.ArgumentParser(description='HEIC encode script using ffmpeg & mp4box.',formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-q',type=int,required=False,help='Quality(crf), default 21.\n ',default=21)
-    parser.add_argument('-o',type=str,required=False,help='Output(s), default input full name (ext. incl.) + ".heic".\n ',nargs='*')
+    parser.add_argument('-o',type=str,required=False,help='Output(s), default input full name (ext. incl.) + ".heic" for file, \ninput main folder path + "_heic" and filename exts. replaced by ".heic" for folder.\n ',nargs='*')
     parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".\n ',action='store_true')
     parser.add_argument('-g',required=False,help='Grid mode switch and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and don\'t use the f___ing odd numbers with yuv420, things will be easier. \nMany softwares can\'t open 10bit gridded images, you can try to upgrade them.\n ',default=False)
     parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".\n ',action='store_true')
@@ -217,30 +227,64 @@ if __name__ == '__main__':
     parser.add_argument('--psy-rdoq',required=False,help='Same with x265, default 8.\n ',default=None)
     parser.add_argument('-sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',action='store_true')
     parser.add_argument('-x265-params',required=False,help='Custom x265 parameters, in ffmpeg style. Appends to parameters set by above arguments.\n ',default='')
-    parser.add_argument('INPUTFILE',type=str,help='Input file.',nargs='+')
+    parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
     pid = os.getpid()
     if args.g=='False':
         args.g=False
-
-    #If you drop a bunch of files to this script this should supposedly work fine.
+    if args.sp:
+        args.sao = 1
+        args.coffs = '+2'
+        args.psy_rdoq = 1
+    #If you drop a bunch of files or folder to this script this should probably works fine.
     if (args.o != None) and (len(args.INPUTFILE) != len(args.o)):
         raise TypeError('the number of input and output should match if output is specified.')
-    i=0
+    
+    fail=i=0
     for in_fp in args.INPUTFILE:
         in_fp = os.path.abspath(in_fp)
-        if args.o == None:
-            out_fp = in_fp + '.heic'
+        if os.path.isdir(in_fp):
+            dirp=pathlib.Path(in_fp)
+            files=[path for path in dirp.rglob('*') if os.path.isfile(path)]
+            subdirs=[path for path in dirp.rglob('*') if os.path.isdir(path)]
+
+            if args.o == None:
+                out_fp = in_fp + '_heic'
+            else:
+                out_fp = args.o[i]
+                i+=1
+                if os.path.exists(out_fp) and not os.path.isdir(out_fp):
+                    raise TypeError('folder input\'s corresponding output must be a folder!')
+            out_fp = os.path.abspath(out_fp)
+
+            if not os.path.exists(out_fp):
+                os.mkdir(out_fp)
+            for subdir in subdirs:
+                newdir=str(subdir).replace(in_fp,out_fp)
+                if not os.path.exists(newdir):
+                    os.mkdir(newdir)
+
+            for file in files:
+                in_fp_sf=str(file)
+                out_fp_sf='.'.join(in_fp_sf.replace(in_fp,out_fp).split('.')[:-1])+'.heic'
+                heic = makeheic(in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,pid,args.sao,args.coffs,args.psy_rdoq,args.x265_params)
+                if not heic.make():
+                    fail+=1
+            if args.delete_src:
+                for subdir in subdirs[::-1]:
+                    os.rmdir(subdir)
+                os.rmdir(in_fp)
         else:
-            out_fp = args.o[i]
-            i+=1
-        out_fp = os.path.abspath(out_fp)
-        if args.sp:
-            args.sao = 1
-            args.coffs = '+2'
-            args.psy_rdoq = 1
-        heic = makeheic(in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,pid,args.sao,args.coffs,args.psy_rdoq,args.x265_params)
-        heic.make()
+            if args.o == None:
+                out_fp = in_fp + '.heic'
+            else:
+                out_fp = args.o[i]
+                i+=1
+            out_fp = os.path.abspath(out_fp)
+            heic = makeheic(in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,pid,args.sao,args.coffs,args.psy_rdoq,args.x265_params)
+            if not heic.make():
+                fail+=1
         
     if not args.s:
+        print(fail,'conversion(s) failed.')
         input('enter to exit.')
