@@ -209,6 +209,7 @@ def pool_init():
 
 fail=0
 def makeheic_wrapper(args):
+    global fail
     heic = makeheic(*args)
     if not heic.make():
         fail+=1
@@ -236,7 +237,7 @@ if __name__ == '__main__':
     parser.add_argument('-sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',action='store_true')
     parser.add_argument('-x265-params',required=False,help='Custom x265 parameters, in ffmpeg style. Appends to parameters set by above arguments.\n ',default='')
     parser.add_argument('--kfs',required=False,help='Keep folder structure.\n ',default=True,action=argparse.BooleanOptionalAction)
-    parser.add_argument('--skip',required=False,help='Skip existing output file.\n ',default=True,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--skip',required=False,help='Skip existing output file.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('-j',type=int,required=False,help='Parallel jobs, default 1. This will make programs\' info output a scramble.\n ',default=1)
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
