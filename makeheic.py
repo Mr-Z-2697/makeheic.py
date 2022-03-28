@@ -14,7 +14,7 @@ class args:
 
 
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp=''):
+    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -53,6 +53,10 @@ class makeheic:
             raise TypeError('output bitdepth not supported')
         if grid:
             self.grid=True
+            self.gridF=False
+            if grid[0]=='+':
+                self.gridF=True
+                grid=grid[1:]
             g=grid.split('x')
             if len(g)==1:
                 self.gw=self.gh=int(g[0])
@@ -61,6 +65,8 @@ class makeheic:
                 self.gh=int(g[1])
         else:
             self.grid=False
+            self.gridF=False
+        self.gos=gos
 
     def run_probe(self):
         if not self.noicc:
@@ -134,7 +140,14 @@ class makeheic:
         pad_w=self.probe_w_odd and self.subs_w
         pad_h=self.probe_h_odd and self.subs_h
         if pad_w or pad_h:
-            pad = 'pad={W}:{H},'.format(W=self.probe_res_w+pad_w, H=self.probe_res_h+pad_h)
+            W=self.probe_res_w+pad_w
+            H=self.probe_res_h+pad_h
+            pad = f'pad={W}:{H},'
+            if self.gos and (not self.grid or (self.items==1 and not self.gridF)):
+                self.grid=self.gridF=True
+                self.g_padded_w=W
+                self.g_padded_h=H
+                self.g_columns=self.g_rows=self.items=1
         else:
             pad = ''
         #Use swscale to handle weird "subsampled but not mod by 2" images, and use zimg for better  conversion if there's no chroma re-subsampling.
@@ -159,7 +172,7 @@ class makeheic:
             sao = 0
         else:
             sao = self.sao
-        if not self.grid:
+        if not self.grid or (self.items==1 and not self.gridF):
             self.ff_cmd_img=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265    -preset 6 -crf {Q} -x265-params    sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "%temp%\make.heic.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp)
 
             self.m4b_cmd_img=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -brand heic -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h))
@@ -235,10 +248,11 @@ if __name__ == '__main__':
     parser.add_argument('--sao',required=False,help='Turn SAO off or on, 0 or 1, 0 is off, 1 is on, default 0.\n ',default=None)
     parser.add_argument('--coffs',required=False,help='Chroma QP offset, [-12..12]. Default -2 for 420, 1 for 444. \nUse +n for offset to default(n can be negative).\n ',default=None)
     parser.add_argument('--psy-rdoq',required=False,help='Same with x265, default 8.\n ',default=None)
-    parser.add_argument('-sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',action='store_true')
+    parser.add_argument('--sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('-x265-params',required=False,help='Custom x265 parameters, in ffmpeg style. Appends to parameters set by above arguments.\n ',default='')
     parser.add_argument('--kfs',required=False,help='Keep folder structure.\n ',default=True,action=argparse.BooleanOptionalAction)
     parser.add_argument('--skip',required=False,help='Skip existing output file.\n ',default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--gos',required=False,help='Auto single-grid odd res and subsampled images if grid isn\'t specified and effective. \nThis script does "pad and set res" anyway, but for some weird reason add a single-grid \nmake more software to recognize the specified res. Default may change in the future.\n ',default=True,action=argparse.BooleanOptionalAction)
     parser.add_argument('-j',type=int,required=False,help='Parallel jobs, default 1. This will make programs\' info output a scramble.\n ',default=1)
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
@@ -287,7 +301,7 @@ if __name__ == '__main__':
                     out_fp_sf=out_fp+'\\'+file.stem+'.heic'
                 if args.skip and os.path.exists(out_fp_sf):
                     continue
-                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params])
+                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos])
 
         else:
             if args.o == None:
@@ -298,7 +312,7 @@ if __name__ == '__main__':
             out_fp = os.path.abspath(out_fp)
             if args.skip and os.path.exists(out_fp):
                 continue
-            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params])
+            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos])
 
     if args.j>1 and len(jobs):
         with Pool(processes=args.j,initializer=pool_init) as pool:
