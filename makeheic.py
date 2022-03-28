@@ -70,6 +70,7 @@ class makeheic:
 
         probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=self.in_fp),shell=True,   stderr=subprocess.PIPE)
         probe_result = probe.stderr.read().decode()
+        probe_result = '\n'.join(probe_result.split('\n')[1:])
 
         #Use extra characters to hopefully ensure that it's grabbing what I want.
         self.probe_codec = re.search('Video: [a-z0-9A-Z]+',probe_result,re.M)
