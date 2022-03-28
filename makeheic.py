@@ -236,6 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('-sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',action='store_true')
     parser.add_argument('-x265-params',required=False,help='Custom x265 parameters, in ffmpeg style. Appends to parameters set by above arguments.\n ',default='')
     parser.add_argument('--kfs',required=False,help='Keep folder structure.\n ',default=True,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--skip',required=False,help='Skip existing output file.\n ',default=True,action=argparse.BooleanOptionalAction)
     parser.add_argument('-j',type=int,required=False,help='Parallel jobs, default 1. This will make programs\' info output a scramble.\n ',default=1)
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
@@ -282,6 +283,8 @@ if __name__ == '__main__':
                     out_fp_sf='.'.join(in_fp_sf.replace(in_fp,out_fp).split('.')[:-1])+'.heic'
                 else:
                     out_fp_sf=out_fp+'\\'+file.stem+'.heic'
+                if args.skip and os.path.exists(out_fp_sf):
+                    continue
                 jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params])
 
         else:
@@ -291,15 +294,18 @@ if __name__ == '__main__':
                 out_fp = args.o[i]
                 i+=1
             out_fp = os.path.abspath(out_fp)
+            if args.skip and os.path.exists(out_fp):
+                continue
             jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params])
-    if args.j>1:
+
+    if args.j>1 and len(jobs):
         with Pool(processes=args.j,initializer=pool_init) as pool:
             try:
                 for x in pool.imap_unordered(makeheic_wrapper,jobs):
                     pass
             except KeyboardInterrupt:
                 pass
-    else:
+    elif len(jobs):
         for x in map(makeheic_wrapper,jobs):
             pass
 
