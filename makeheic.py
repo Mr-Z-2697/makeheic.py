@@ -7,6 +7,7 @@ from random import choice
 import pathlib
 from multiprocessing import Pool
 import signal
+import tempfile
 
 class args:
     pass
@@ -14,7 +15,7 @@ class args:
 
 
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True):
+    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -67,32 +68,54 @@ class makeheic:
             self.grid=False
             self.gridF=False
         self.gos=gos
+        self.medium_img=False
+        self.temp_folder=tempfile.gettempdir() if tempfolder==None else tempfolder
+        self.crft=crf+6 if crft==None else crft
+        self.alpbl=alpbl
 
     def run_probe(self):
         if not self.noicc:
-            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=self.in_fp,OUT=r'%temp%\make.heic',PID=self.pid),shell=True).returncode
+            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=self.in_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True).returncode
         else:
             self.hasicc = False
 
-        probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=self.in_fp),shell=True,   stderr=subprocess.PIPE)
+        probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=self.in_fp),shell=True,stderr=subprocess.PIPE)
         probe_result = probe.stderr.read().decode()
         probe_result = '\n'.join(probe_result.split('\n')[1:])
+
+        if re.search('Could not find codec parameters for stream',probe_result):
+            subprocess.run(r'magick "{INP}" "{OUT}.{PID}.apng"'.format(INP=self.in_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True)
+            self.src_fp=self.in_fp
+            self.in_fp=os.path.abspath(f'{self.temp_folder}\\make.heic.{self.pid}.apng')
+            self.medium_img=True
+            return self.run_probe()
 
         #Use extra characters to hopefully ensure that it's grabbing what I want.
         self.probe_codec = re.search('Video: [a-z0-9A-Z]+',probe_result,re.M)
         if self.probe_codec:
             self.probe_codec=self.probe_codec.group()
             #I'm kinda lazy, feel free to add whatever ffmpeg supports.
-            if not self.probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm','tiff'): 
-                print(r'input file "{INP}" codec not supported.'.format(INP=in_fp))
+            if not self.probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm','tiff','gif','apng'):
+                print(r'input file "{INP}" codec not supported.'.format(INP=self.in_fp))
                 return False
+            #Stupid workaround for non-animated webp with animated webp style metadata
+            elif self.probe_codec[7:]=='png' and self.medium_img:
+                os.remove(self.in_fp)
+                subprocess.run(r'magick "{INP}" "{OUT}.{PID}.png"'.format(INP=self.src_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True)
+                self.in_fp=os.path.abspath(f'{self.temp_folder}\\make.heic.{self.pid}.png')
+                self.isseq = False
+            elif self.probe_codec[7:] in ('gif','apng'):
+                self.isseq=subprocess.Popen(r'ffprobe -hide_banner -count_packets -print_format csv -select_streams V -show_entries stream=nb_read_packets -threads 4 -i "{INP}"'.format(INP=self.in_fp),shell=True,stdout=subprocess.PIPE).stdout.read()
+                self.isseq = not self.isseq==b'stream,1\r\n'
+            else:
+                self.isseq = False
         else:
             return False
 
         self.probe_pixfmt = re.search(', yuv|, [a]*rgb[albepf0-9]*|, [a]*bgr[albepf0-9]*|, [a]*gbr[albepf0-9]*|, pal8|, gray|, ya',probe_result)
         self.probe_alpha = re.search('yuva4|argb|bgra|rgba|gbra|ya[81]',probe_result)
         if not self.probe_pixfmt:
-            print(r'input file "{INP}" pixel format not supported.'.format(INP=in_fp))
+            print(r'input file "{INP}" pixel format not supported.'.format(INP=self.in_fp))
             return False
         else:
             self.probe_pixfmt = self.probe_pixfmt.group()
@@ -152,8 +175,8 @@ class makeheic:
             pad = ''
         #Use swscale to handle weird "subsampled but not mod by 2" images, and use zimg for better  conversion if there's no chroma re-subsampling.
         c_resubs = (self.probe_subs_w != self.subs_w) or (self.probe_subs_h != self.subs_h)
-        if c_resubs or self.sws:
-            scale_filter = r'scale=out_range=pc:flags=spline:sws_dither=ed:out_v_chr_pos={VC}:out_h_chr_pos={HC}:out_color_matrix={MAT_L}'.format(MAT_L=self.mat_l,VC=(127 if self.subs_h else 0),HC=(127 if self.subs_w else 0))
+        if c_resubs or self.sws or ((self.probe_alpha or self.alpha) and self.alpbl):
+            scale_filter = r'scale=out_range=pc:flags=spline:sws_dither=ed:out_v_chr_pos={VC}:out_h_chr_pos={HC}:out_color_matrix={MAT_L}{ABL}'.format(MAT_L=self.mat_l,VC=(127 if self.subs_h else 0),HC=(127 if self.subs_w else 0),ABL=':alphablend='+str(self.alpbl) if self.alpbl else '')
         else:
             scale_filter = r'zscale=r=pc:f=spline36:d=error_diffusion:c=1:m={MAT_S}'.format(MAT_S=self.mat_s)
         ff_pixfmt='yuv{S}p{D}'.format(S=self.sample,D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '')
@@ -173,44 +196,56 @@ class makeheic:
             sao = 0
         else:
             sao = self.sao
-        if not self.grid or (self.items==1 and not self.gridF):
-            self.ff_cmd_img=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265    -preset 6 -crf {Q} -x265-params    sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "%temp%\make.heic.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp)
 
-            self.m4b_cmd_img=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),BN=brand)
+        #This isseq thing looks stupid but it's a lot easier for me
+        if not self.isseq:
+            if not self.grid or (self.items==1 and not self.gridF):
+                self.ff_cmd_img=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder)
 
-            self.ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265    -preset 6 -crf {Q} -x265-params    sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "%temp%\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}extractplanes=a,format={PF2} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "%temp%\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,SAO=sao,PRDO=prdo,XP=self.xp)
+                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),BN=brand,TMPF=self.temp_folder)
 
-            self.m4b_cmd_a=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC}  -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} -brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc"'.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),BN=brand)
+                self.ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}extractplanes=a,format={PF2} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder)
+
+                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} -brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),BN=brand,TMPF=self.temp_folder)
+            else:
+                self.ff_cmd_img=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder)
+
+                refs=''
+                for x in range(1,self.items+1):
+                    refs+=f'ref=dimg,{x}:'
+
+                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,BN=brand,TMPF=self.temp_folder)
+
+                self.ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,extractplanes=a,format={PF2} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params keyint=1:sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder)
+
+                refs2=''
+                for x in range(self.items+2,self.items*2+2):
+                    refs2+=f'ref=dimg,{x}:'
+
+                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} -brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,GID=self.items+1,REFS2=refs2,BN=brand,TMPF=self.temp_folder)
         else:
-            self.ff_cmd_img=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v libx265    -preset 6 -crf {Q} -x265-params    keyint=1:sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "%temp%\make.heic.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),SAO=sao,PRDO=prdo,XP=self.xp)
+            #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
+            self.ff_cmd_seq=r'ffmpeg -hide_banner -probesize 100M -i "{INP}" -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder)
 
-            refs=''
-            for x in range(1,self.items+1):
-                refs+=f'ref=dimg,{x}:'
-
-            self.m4b_cmd_img=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,BN=brand)
-            
-            self.ff_cmd_a=r'ffmpeg -hide_banner -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v libx265    -preset 6 -crf {Q} -x265-params    keyint=1:sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "%temp%\make.heic.{PID}.hevc" -y -map v:0 -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,extractplanes=a,format={PF2} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params keyint=1:sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "%temp%\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),SAO=sao,PRDO=prdo,XP=self.xp)
-
-            refs2=''
-            for x in range(self.items+2,self.items*2+2):
-                refs2+=f'ref=dimg,{x}:'
-
-            self.m4b_cmd_a=r'cd /d %temp% && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} -brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc"'.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(self.probe_res_w)+'x'+str(self.probe_res_h),GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,GID=self.items+1,REFS2=refs2,BN=brand)
-
+            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.hevc":primary{ICC} -new "{OUT}" & mp4box -add "make.heic.{PID}.hevc" "{OUT}" && del "make.heic.{PID}.hevc" && del "{TMPF}\make.heic.thumb.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
     def encode(self):
         
-        if (self.probe_alpha or self.alpha) and not self.noalpha:
+        if self.isseq:
+            subprocess.run(self.ff_cmd_seq,shell=True)
+            subprocess.run(self.m4b_cmd_seq,shell=True)
+        elif (self.probe_alpha or self.alpha) and not self.noalpha:
             subprocess.run(self.ff_cmd_a,shell=True)
             subprocess.run(self.m4b_cmd_a,shell=True)
         else:
             subprocess.run(self.ff_cmd_img,shell=True)
             subprocess.run(self.m4b_cmd_img,shell=True)
         if self.hasicc:
-            subprocess.run(r'del %temp%\make.heic.{PID}.icc'.format(PID=self.pid),shell=True)
+            subprocess.run(r'del {TMPF}\make.heic.{PID}.icc'.format(PID=self.pid,TMPF=self.temp_folder),shell=True)
         #Delete source file or not?
-        if self.delsrc:
+        if self.delsrc or self.medium_img:
             os.remove(self.in_fp)
+        if self.medium_img and self.delsrc:
+            os.remove(self.src_fp)
 
     def make(self):
         if not self.run_probe():
@@ -255,6 +290,9 @@ if __name__ == '__main__':
     parser.add_argument('--skip',required=False,help='Skip existing output file.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('--gos',required=False,help='Auto single-grid odd res and subsampled images if grid isn\'t specified and effective. \nThis script does "pad and set res" anyway, but for some weird reason add a single-grid \nmake more software to recognize the specified res. Default may change in the future.\n ',default=True,action=argparse.BooleanOptionalAction)
     parser.add_argument('-j',type=int,required=False,help='Parallel jobs, default 1. This will make programs\' info output a scramble.\n ',default=1)
+    parser.add_argument('-qtm',type=str,required=False,help='Sequence thumb quality. Experimental. Default q+6.\n ',default=None)
+    parser.add_argument('-tmpf',type=str,required=False,help='Temp folder location. Default automatic find system temp folder.\n ',default=None)
+    parser.add_argument('-alpbl','--alphablend',type=int,required=False,help='Alphablend when encoding rgb channels of transparent image, default 0.\n ',default=0)
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
     pid = os.getpid()
@@ -302,7 +340,7 @@ if __name__ == '__main__':
                     out_fp_sf=out_fp+'\\'+file.stem+'.heic'
                 if args.skip and os.path.exists(out_fp_sf):
                     continue
-                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos])
+                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend])
 
         else:
             if args.o == None:
@@ -313,7 +351,7 @@ if __name__ == '__main__':
             out_fp = os.path.abspath(out_fp)
             if args.skip and os.path.exists(out_fp):
                 continue
-            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos])
+            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend])
 
     if args.j>1 and len(jobs):
         with Pool(processes=args.j,initializer=pool_init) as pool:
