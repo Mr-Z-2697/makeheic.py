@@ -84,7 +84,8 @@ class makeheic:
         probe_result = '\n'.join(probe_result.split('\n')[1:])
 
         if re.search('Could not find codec parameters for stream',probe_result):
-            subprocess.run(r'magick "{INP}" "{OUT}.{PID}.apng"'.format(INP=self.in_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True)
+            #Quality option only affects compression level for png. 1 is the least compress one can get with IM. Intermedia image doesn't need high compress I suppose.
+            subprocess.run(r'magick convert -quality 1 "{INP}" "{OUT}.{PID}.apng"'.format(INP=self.in_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True)
             self.src_fp=self.in_fp
             self.in_fp=os.path.abspath(f'{self.temp_folder}\\make.heic.{self.pid}.apng')
             self.medium_img=True
@@ -101,7 +102,7 @@ class makeheic:
             #Stupid workaround for non-animated webp with animated webp style metadata
             elif self.probe_codec[7:]=='png' and self.medium_img:
                 os.remove(self.in_fp)
-                subprocess.run(r'magick "{INP}" "{OUT}.{PID}.png"'.format(INP=self.src_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True)
+                subprocess.run(r'magick convert -quality 1 "{INP}" "{OUT}.{PID}.png"'.format(INP=self.src_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True)
                 self.in_fp=os.path.abspath(f'{self.temp_folder}\\make.heic.{self.pid}.png')
                 self.isseq = False
             elif self.probe_codec[7:] in ('gif','apng'):
