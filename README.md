@@ -12,3 +12,6 @@ A crappy script that uses ffmpeg &amp; mp4box to convert pictures to heic.
 ## Usage:
 1. Drag and drop (will use default settings).
 2. Command line
+
+## Notice:
+1. Scaling function is just for quick use, if you are serious about scaling quality, please use tools like GIMP.
