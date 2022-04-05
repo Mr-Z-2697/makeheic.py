@@ -15,7 +15,7 @@ class args:
 
 
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1]):
+    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none'):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -74,6 +74,7 @@ class makeheic:
         self.alpbl=alpbl
         self.lpbo=lpbo
         self.scale=scale
+        self.hwenc=hwenc if hwenc in ['hevc_nvenc','hevc_qsv','hevc_amf'] else None
 
     def run_probe(self):
         if not self.noicc:
@@ -246,6 +247,42 @@ class makeheic:
             self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M -i "{INP}" -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd)
 
             self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.hevc":primary{ICC} -new "{OUT}" & mp4box -add "make.heic.{PID}.hevc" "{OUT}" && del "make.heic.{PID}.hevc" && del "{TMPF}\make.heic.thumb.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
+########################################
+        if self.hwenc==None:
+            return True
+########################################
+
+        #I'm lazy so I copy-paste
+        if not self.isseq:
+            if not self.grid or (self.items==1 and not self.gridF):
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc)
+
+                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(int(self.probe_res_w*self.scale[0]))+'x'+str(int(self.probe_res_h*self.scale[1])),BN=brand,TMPF=self.temp_folder)
+
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q2} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,SFA=scale_filter_a,HWE=self.hwenc)
+
+                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} -brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(int(self.probe_res_w*self.scale[0]))+'x'+str(int(self.probe_res_h*self.scale[1])),BN=brand,TMPF=self.temp_folder)
+            else:
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc)
+
+                refs=''
+                for x in range(1,self.items+1):
+                    refs+=f'ref=dimg,{x}:'
+
+                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(int(self.probe_res_w*self.scale[0]))+'x'+str(int(self.probe_res_h*self.scale[1])),GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,BN=brand,TMPF=self.temp_folder)
+
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q2} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,SFA=scale_filter_a,HWE=self.hwenc)
+
+                refs2=''
+                for x in range(self.items+2,self.items*2+2):
+                    refs2+=f'ref=dimg,{x}:'
+
+                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} -brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"'.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(int(self.probe_res_w*self.scale[0]))+'x'+str(int(self.probe_res_h*self.scale[1])),GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,GID=self.items+1,REFS2=refs2,BN=brand,TMPF=self.temp_folder)
+        else:
+            #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
+            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M -i "{INP}" -vf {PD}{SF},format={PF} -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc)
+
+            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.hevc":primary{ICC} -new "{OUT}" & mp4box -add "make.heic.{PID}.hevc" "{OUT}" && del "make.heic.{PID}.hevc" && del "{TMPF}\make.heic.thumb.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
     def encode(self):
         
         if self.isseq:
@@ -313,6 +350,7 @@ if __name__ == '__main__':
     parser.add_argument('-alpbl','--alphablend',type=int,required=False,help='Alphablend when encoding rgb channels of transparent image, default 0.\n ',default=0)
     parser.add_argument('--lpbo',required=False,help='Use libplacebo to handle the color space conversion, default false.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('-scale',type=str,required=False,help='Scale factor, can be a number for both W&H or comma seperated two numbers for each (W,H).\n Range is 0~1, Default 1,1.\n ',default='1,1')
+    parser.add_argument('-hwenc',type=str,required=False,help='Seriously? Don\'t.\n ',default='none')
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
     pid = os.getpid()
@@ -362,7 +400,7 @@ if __name__ == '__main__':
                     out_fp_sf=out_fp+'\\'+file.stem+'.heic'
                 if args.skip and os.path.exists(out_fp_sf):
                     continue
-                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale])
+                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc])
 
         else:
             if args.o == None:
@@ -373,7 +411,7 @@ if __name__ == '__main__':
             out_fp = os.path.abspath(out_fp)
             if args.skip and os.path.exists(out_fp):
                 continue
-            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale])
+            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc])
 
     if args.j>1 and len(jobs):
         with Pool(processes=args.j,initializer=pool_init) as pool:
