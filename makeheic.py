@@ -15,7 +15,7 @@ class args:
 
 
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none'):
+    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none',exiftr=0):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -75,6 +75,7 @@ class makeheic:
         self.lpbo=lpbo
         self.scale=scale
         self.hwenc=hwenc if hwenc in ['hevc_nvenc','hevc_qsv','hevc_amf'] else None
+        self.exiftr=True if exiftr==1 else False
 
     def run_probe(self):
         if not self.noicc:
@@ -216,6 +217,8 @@ class makeheic:
         else:
             sao = self.sao
 
+        self.et_cmd=rf'exiftool -overwrite_original -tagsFromFile "{self.in_fp}" "{self.out_fp}"'
+
         #This isseq thing looks stupid but it's a lot easier for me
         if not self.isseq:
             if not self.grid or (self.items==1 and not self.gridF):
@@ -283,6 +286,7 @@ class makeheic:
             self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M -i "{INP}" -vf {PD}{SF},format={PF} -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc)
 
             self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.hevc":primary{ICC} -new "{OUT}" & mp4box -add "make.heic.{PID}.hevc" "{OUT}" && del "make.heic.{PID}.hevc" && del "{TMPF}\make.heic.thumb.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
+
     def encode(self):
         
         if self.isseq:
@@ -296,6 +300,8 @@ class makeheic:
             subprocess.run(self.m4b_cmd_img,shell=True)
         if self.hasicc:
             subprocess.run(r'del {TMPF}\make.heic.{PID}.icc'.format(PID=self.pid,TMPF=self.temp_folder),shell=True)
+        if self.exiftr:
+            subprocess.run(self.et_cmd,shell=True)
         #Delete source file or not?
         if self.delsrc or self.medium_img:
             os.remove(self.in_fp)
@@ -351,6 +357,7 @@ if __name__ == '__main__':
     parser.add_argument('--lpbo',required=False,help='Use libplacebo to handle the color space conversion, default false.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('-scale',type=str,required=False,help='Scale factor, can be a number for both W&H or comma seperated two numbers for each (W,H).\n Range is 0~1, Default 1,1.\n ',default='1,1')
     parser.add_argument('-hwenc',type=str,required=False,help='Seriously? Don\'t.\n ',default='none')
+    parser.add_argument('-e','--exiftr',type=int,required=False,help='Transfer EXIF, set 1/0 for on/off, default 0(off).\n ',default=0)
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
     pid = os.getpid()
@@ -400,7 +407,7 @@ if __name__ == '__main__':
                     out_fp_sf=out_fp+'\\'+file.stem+'.heic'
                 if args.skip and os.path.exists(out_fp_sf):
                     continue
-                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc])
+                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr])
 
         else:
             if args.o == None:
@@ -411,7 +418,7 @@ if __name__ == '__main__':
             out_fp = os.path.abspath(out_fp)
             if args.skip and os.path.exists(out_fp):
                 continue
-            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc])
+            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr])
 
     if args.j>1 and len(jobs):
         with Pool(processes=args.j,initializer=pool_init) as pool:
