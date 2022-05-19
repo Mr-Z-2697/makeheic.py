@@ -163,7 +163,7 @@ class makeheic:
             self.g_padded_h=self.g_rows*self.gh
             self.items=self.g_columns*self.g_rows
         else:
-            self.g_columns=self.g_rows=self.g_padded_h=self.g_padded_w=self.items=1
+            self.g_columns=self.g_rows=self.g_padded_h=self.g_padded_w=self.items=0
         return True
 
     def cmd_line_gen(self):
@@ -226,7 +226,7 @@ class makeheic:
             else:
                 tmbn=r' -vf scale={W}:-2,{PD}{SF},format={PF} -map v:0 -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.thumb.{PID}.hevc"'
             tmbn=tmbn.format(W=self.thumbnail,PD=pad,SF=scale_filter,PF=ff_pixfmt,Q=self.crf,MAT_L=self.mat_l,SAO=sao,PRDO=prdo,CO=coffs,XP=self.xp,TMPF=self.temp_folder,PID=self.pid,HWE=self.hwenc)
-            tmbn_m4b=r'-add-image "{TMPF}\make.heic.thumb.{PID}.hevc":hidden:ref=thmb,1 '.format(TMPF=self.temp_folder,PID=self.pid)
+            tmbn_m4b=r'-add-image "{TMPF}\make.heic.thumb.{PID}.hevc":hidden:ref=thmb,{MID} '.format(TMPF=self.temp_folder,PID=self.pid,MID=self.items+1)
             tmbn_del=r' && del "make.heic.thumb.{PID}.hevc"'.format(PID=self.pid)
         else:
             tmbn=''
