@@ -242,7 +242,7 @@ class makeheic:
 
                 self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
 
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
             else:
@@ -253,7 +253,7 @@ class makeheic:
 
                 self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
 
                 for x in range(self.items+2,self.items*2+2):
                     refs2+=f'ref=dimg,{x}:'
@@ -282,7 +282,7 @@ class makeheic:
 
                 self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q2} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q2} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
 
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
             else:
@@ -294,7 +294,7 @@ class makeheic:
 
                 self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q2} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q2} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
 
                 refs2=''
                 for x in range(self.items+2,self.items*2+2):
