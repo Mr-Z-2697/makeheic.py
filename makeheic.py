@@ -163,7 +163,7 @@ class makeheic:
             self.g_padded_h=self.g_rows*self.gh
             self.items=self.g_columns*self.g_rows
         else:
-            self.g_columns=self.g_rows=self.g_padded_h=self.g_padded_w=self.items=0
+            self.g_columns=self.g_rows=self.g_padded_h=self.g_padded_w=self.items=1
         return True
 
     def cmd_line_gen(self):
@@ -226,7 +226,7 @@ class makeheic:
             else:
                 tmbn=r' -vf scale={W}:-2,{PD}{SF},format={PF} -map v:0 -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.thumb.{PID}.hevc"'
             tmbn=tmbn.format(W=self.thumbnail,PD=pad,SF=scale_filter,PF=ff_pixfmt,Q=self.crf,MAT_L=self.mat_l,SAO=sao,PRDO=prdo,CO=coffs,XP=self.xp,TMPF=self.temp_folder,PID=self.pid,HWE=self.hwenc)
-            tmbn_m4b=r'-add-image "{TMPF}\make.heic.thumb.{PID}.hevc":hidden:ref=thmb,{MID} '.format(TMPF=self.temp_folder,PID=self.pid,MID=self.items+1)
+            tmbn_m4b=r'-add-image "{TMPF}\make.heic.thumb.{PID}.hevc":hidden:ref=thmb,1 '.format(TMPF=self.temp_folder,PID=self.pid)
             tmbn_del=r' && del "make.heic.thumb.{PID}.hevc"'.format(PID=self.pid)
         else:
             tmbn=''
@@ -360,12 +360,12 @@ if __name__ == '__main__':
     parser.add_argument('-o',type=str,required=False,help='Output(s), default input full name (ext. incl.) + ".heic" for file, \ninput main folder path + "_heic" and filename exts. replaced by ".heic" for folder.\n ',nargs='*')
     parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".\n ',action='store_true')
     parser.add_argument('-g',required=False,help='Grid mode switch and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and don\'t use the f___ing odd numbers with yuv420, things will be easier. \nMany softwares can\'t open 10bit gridded images, you can try to upgrade them.\n ',default=False)
-    parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".\n ',action='store_true')
-    parser.add_argument('--sws',required=False,help='Force to use swscale switch.\n ',action='store_true')
+    parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".\n ',default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--sws',required=False,help='Force to use swscale switch.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.\n ',action='store_true')
     parser.add_argument('--no-alpha',required=False,help='Ignore alpha plane switch.\n ',action='store_true')
     parser.add_argument('--alphaq',type=int,required=False,help='Alpha quality(crf), default None(same as -q).\n ',default=None)
-    parser.add_argument('--no-icc',required=False,help='Ignore icc profile of source image switch.\n ',action='store_true')
+    parser.add_argument('--icc',required=False,help='Ignore icc profile of source image switch.\n ',default=True,action=argparse.BooleanOptionalAction)
     #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
     parser.add_argument('-m','--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. \nIf a input file is in YUV, it\'s original matrix will be "preserved" if this option isn\'t set.\n ',default=None)
     parser.add_argument('-b','--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.\n ',default=10)
@@ -376,6 +376,7 @@ if __name__ == '__main__':
     parser.add_argument('--sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('-x265-params',required=False,help='Custom x265 parameters, in ffmpeg style. Appends to parameters set by above arguments.\n ',default='')
     parser.add_argument('--kfs',required=False,help='Keep folder structure.\n ',default=True,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--sf',required=False,help='Include subfolder or not.\n ',default=True,action=argparse.BooleanOptionalAction)
     parser.add_argument('--skip',required=False,help='Skip existing output file.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('--gos',required=False,help='Auto single-grid odd res and subsampled images if grid isn\'t specified and effective. \nThis script does "pad and set res" anyway, but for some weird reason add a single-grid \nmake more software to recognize the specified res. Default may change in the future.\n ',default=True,action=argparse.BooleanOptionalAction)
     parser.add_argument('-j',type=int,required=False,help='Parallel jobs, default 1. This will make programs\' info output a scramble.\n ',default=1)
@@ -401,6 +402,7 @@ if __name__ == '__main__':
         raise TypeError('the number of input and output should match if output is specified.')
     args.scale = [float(x) for x in args.scale.split(',')]
     args.scale.append(args.scale[0])
+    args.icc = not args.icc
     
     i=0
     jobs=[]
@@ -408,8 +410,12 @@ if __name__ == '__main__':
         in_fp = os.path.abspath(in_fp)
         if os.path.isdir(in_fp):
             dirp=pathlib.Path(in_fp)
-            files=[path for path in dirp.rglob('*') if os.path.isfile(path)]
-            subdirs=[path for path in dirp.rglob('*') if os.path.isdir(path)]
+            if args.sf:
+                files=[path for path in dirp.rglob('*') if os.path.isfile(path)]
+                subdirs=[path for path in dirp.rglob('*') if os.path.isdir(path)]
+            else:
+                files=[path for path in dirp.glob('*') if os.path.isfile(path)]
+                subdirs=[]
 
             if args.o == None:
                 out_fp = in_fp + '_heic'
@@ -436,7 +442,7 @@ if __name__ == '__main__':
                     out_fp_sf=out_fp+'\\'+file.stem+'.heic'
                 if args.skip and os.path.exists(out_fp_sf):
                     continue
-                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb])
+                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb])
 
         else:
             if args.o == None:
@@ -447,7 +453,7 @@ if __name__ == '__main__':
             out_fp = os.path.abspath(out_fp)
             if args.skip and os.path.exists(out_fp):
                 continue
-            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.no_icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb])
+            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb])
 
     if args.j>1 and len(jobs):
         with Pool(processes=args.j,initializer=pool_init) as pool:
@@ -465,10 +471,16 @@ if __name__ == '__main__':
             in_fp = os.path.abspath(in_fp)
             if os.path.isdir(in_fp):
                 dirp=pathlib.Path(in_fp)
-                subdirs=[path for path in dirp.rglob('*') if os.path.isdir(path)]
+                subdirs=[path for path in dirp.rglob('*') if os.path.isdir(path)] if args.sf else []
                 for subdir in subdirs[::-1]:
-                    os.rmdir(subdir)
-                os.rmdir(in_fp)
+                    try:
+                        os.rmdir(subdir)
+                    except:
+                        pass
+                try:
+                    os.rmdir(in_fp)
+                except:
+                    pass
 
     if not args.s:
         print(fail,'conversion(s) failed.')
