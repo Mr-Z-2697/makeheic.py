@@ -15,7 +15,7 @@ class args:
 
 
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=21,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none',exiftr=0,thumbnail=0):
+    def __init__(self,in_fp,out_fp,crf=18,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none',exiftr=0,thumbnail=0):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -179,7 +179,7 @@ class makeheic:
                 self.grid=self.gridF=True
                 self.g_padded_w=W
                 self.g_padded_h=H
-                self.g_columns=self.g_rows=self.items=1
+                self.g_columns=self.g_rows=self.items=0
         else:
             pad = ''
         #Use swscale to handle scaling and weird "subsampled but not mod by 2" images, and use zimg for better conversion if there's no any resampling(scaling).
@@ -222,11 +222,11 @@ class makeheic:
 
         if self.thumbnail:
             if self.hwenc==None:
-                tmbn=r' -vf scale={W}:-2,{PD}{SF},format={PF} -map v:0 -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.thumb.{PID}.hevc"'
+                tmbn=r' -vf scale={W}:-2,{PD}{SF},format={PF} -map v:0 -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.thumb.{PID}.hevc"'
             else:
                 tmbn=r' -vf scale={W}:-2,{PD}{SF},format={PF} -map v:0 -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.thumb.{PID}.hevc"'
             tmbn=tmbn.format(W=self.thumbnail,PD=pad,SF=scale_filter,PF=ff_pixfmt,Q=self.crf,MAT_L=self.mat_l,SAO=sao,PRDO=prdo,CO=coffs,XP=self.xp,TMPF=self.temp_folder,PID=self.pid,HWE=self.hwenc)
-            tmbn_m4b=r'-add-image "{TMPF}\make.heic.thumb.{PID}.hevc":hidden:ref=thmb,1 '.format(TMPF=self.temp_folder,PID=self.pid)
+            tmbn_m4b=r'-add-image "{TMPF}\make.heic.thumb.{PID}.hevc":hidden:ref=thmb,{MID} '.format(TMPF=self.temp_folder,PID=self.pid,MID=self.items+1)
             tmbn_del=r' && del "make.heic.thumb.{PID}.hevc"'.format(PID=self.pid)
         else:
             tmbn=''
@@ -238,22 +238,22 @@ class makeheic:
         #This isseq thing looks stupid but it's a lot easier for me
         if not self.isseq:
             if not self.grid or (self.items==1 and not self.gridF):
-                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
 
                 self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'
 
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
             else:
-                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
 
                 for x in range(1,self.items+1):
                     refs+=f'ref=dimg,{x}:'
 
                 self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params keyint=1:sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc" -y'
 
                 for x in range(self.items+2,self.items*2+2):
                     refs2+=f'ref=dimg,{x}:'
@@ -261,7 +261,7 @@ class makeheic:
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
-            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M -i "{INP}" -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1:{XP} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd)
+            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M -i "{INP}" -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd)
 
             self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.hevc":primary{ICC} -new "{OUT}" & mp4box -add "make.heic.{PID}.hevc" "{OUT}" && del "make.heic.{PID}.hevc" && del "{TMPF}\make.heic.thumb.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
 ########################################
@@ -356,7 +356,7 @@ def makeheic_wrapper(args):
 if __name__ == '__main__':
     #Arguments, ordinary stuff I guess.
     parser = argparse.ArgumentParser(description='HEIC encode script using ffmpeg & mp4box.',formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-q',type=int,required=False,help='Quality(crf), default 21.\n ',default=21)
+    parser.add_argument('-q',type=float,required=False,help='Quality(crf), default 18.\n ',default=18)
     parser.add_argument('-o',type=str,required=False,help='Output(s), default input full name (ext. incl.) + ".heic" for file, \ninput main folder path + "_heic" and filename exts. replaced by ".heic" for folder.\n ',nargs='*')
     parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".\n ',action='store_true')
     parser.add_argument('-g',required=False,help='Grid mode switch and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and don\'t use the f___ing odd numbers with yuv420, things will be easier. \nMany softwares can\'t open 10bit gridded images, you can try to upgrade them.\n ',default=False)
@@ -388,6 +388,7 @@ if __name__ == '__main__':
     parser.add_argument('-scale',type=str,required=False,help='Scale factor, can be a number for both W&H or comma seperated two numbers for each (W,H).\n Range is 0~1, Default 1,1.\n ',default='1,1')
     parser.add_argument('-hwenc',type=str,required=False,help='Seriously? Don\'t.\n ',default='none')
     parser.add_argument('-e','--exiftr',type=int,required=False,help='Transfer EXIF, set 1/0 for on/off, default 0(off).\n ',default=0)
+    parser.add_argument('--fast',required=False,help='Some x265 parameter tweaks, will affect compression ratio, \nbut make encoding faster up to 6 times than default.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
     pid = os.getpid()
@@ -403,6 +404,11 @@ if __name__ == '__main__':
     args.scale = [float(x) for x in args.scale.split(',')]
     args.scale.append(args.scale[0])
     args.icc = not args.icc
+    if args.fast:
+        args.x265_params = args.x265_params + ':rdoq-level=0:min-cu-size=32:max-tu-size=8'
+    if args.x265_params != '':
+        if args.x265_params[0] != ':':
+            args.x265_params = ':' + args.x265_params
     
     i=0
     jobs=[]
