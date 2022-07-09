@@ -1,3 +1,4 @@
+[English](README_eng.md)
 # makeheic.py
 一个用 ffmpeg 和 mp4box 来将图片转换为 heic 的腊鸡脚本
 
