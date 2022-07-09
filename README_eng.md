@@ -1,7 +1,18 @@
 # makeheic.py
 A crappy script that uses ffmpeg &amp; mp4box to convert pictures to heic.
 
-~Yeah now I'm actually making it more than just a .bat file.~
+## Features:
+1. Convert images to YUV(444/422/420)P(8/10/12) HEIC.
+2. Multi process parallel work
+3. Supports folder input
+4. Supports alpha channel auxiliary image item
+5. Supports split to grid
+6. Supports ICC and EXIF copying
+7. Supports thumbnail auxiliary image item
+8. (experimantal) Animated sequence
+9. Hardware encoding available
+10. Image scaling available
+11. Vulkan accelerated libplacebo available for color space conversion etc.
 
 ## Requirements:
 1. Python 3.9+
@@ -12,7 +23,7 @@ A crappy script that uses ffmpeg &amp; mp4box to convert pictures to heic.
 
 ## Usage:
 1. Drag and drop (will use default settings).
-2. Command line
+2. Command line, see `makeheic.py -h`
 
 ## Notice:
 1. Scaling function is just for quick use, if you are serious about scaling quality, please use tools like GIMP.
