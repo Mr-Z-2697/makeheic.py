@@ -179,7 +179,7 @@ class makeheic:
                 self.grid=self.gridF=True
                 self.g_padded_w=W
                 self.g_padded_h=H
-                self.g_columns=self.g_rows=self.items=0
+                self.g_columns=self.g_rows=self.items=1
         else:
             pad = ''
         #Use swscale to handle scaling and weird "subsampled but not mod by 2" images, and use zimg for better conversion if there's no any resampling(scaling).
