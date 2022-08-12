@@ -1,5 +1,4 @@
 import os,sys
-from sqlite3 import SQLITE_TRANSACTION
 import argparse
 import subprocess
 import re
