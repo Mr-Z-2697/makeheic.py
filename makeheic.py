@@ -15,7 +15,7 @@ class args:
 
 
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=18,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none',exiftr=0,thumbnail=0):
+    def __init__(self,in_fp,out_fp,crf=18,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none',exiftr=0,thumbnail=0,trim=[]):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -77,22 +77,20 @@ class makeheic:
         self.hwenc=hwenc if hwenc in ['hevc_nvenc','hevc_qsv','hevc_amf'] else None
         self.exiftr=True if exiftr==1 else False
         self.thumbnail=thumbnail
+        self.trim=' -ss {S} -to {T}'.format(S=trim[0],T=trim[1]) if len(trim)==2 else ''
 
     def run_probe(self):
-        if not self.noicc:
-            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=self.in_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True).returncode
-        else:
-            self.hasicc = False
-
         probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=self.in_fp),shell=True,stderr=subprocess.PIPE)
         probe_result = probe.stderr.read().decode()
         probe_result = '\n'.join(probe_result.split('\n')[1:])
 
         if re.search('Could not find codec parameters for stream',probe_result):
             #Quality option only affects compression level for png. 1 is the least compress one can get with IM. Intermedia image doesn't need high compress, but 10 is a nice tradeoff I suppose.
-            subprocess.run(r'magick convert -quality 10 "{INP}" "{OUT}.{PID}.apng"'.format(INP=self.in_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True)
+            subprocess.run(r'magick convert -quality 10 "{INP}" "{OUT}.{PID}.%d.png" && ffmpeg -loglevel error -i "{OUT}.{PID}.%d.png" -c apng -compression_level 0 "{OUT}.{PID}.apng"'.format(INP=self.in_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True)
             self.src_fp=self.in_fp
             self.in_fp=os.path.abspath(f'{self.temp_folder}\\make.heic.{self.pid}.apng')
+            for p in pathlib.Path(self.in_fp).parent.glob(f'make.heic.{self.pid}.*.png'):
+                os.remove(p)
             self.medium_img=True
             return self.run_probe()
 
@@ -101,7 +99,7 @@ class makeheic:
         if self.probe_codec:
             self.probe_codec=self.probe_codec.group()
             #I'm kinda lazy, feel free to add whatever ffmpeg supports.
-            if not self.probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm','tiff','gif','apng'):
+            if not self.probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm','tiff','gif','apng','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
                 print(r'input file "{INP}" codec not supported.'.format(INP=self.in_fp))
                 return False
             #Stupid workaround for non-animated webp with animated webp style metadata
@@ -110,13 +108,18 @@ class makeheic:
                 subprocess.run(r'magick convert -quality 10 "{INP}" "{OUT}.{PID}.png"'.format(INP=self.src_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True)
                 self.in_fp=os.path.abspath(f'{self.temp_folder}\\make.heic.{self.pid}.png')
                 self.isseq = False
-            elif self.probe_codec[7:] in ('gif','apng'):
+            elif self.probe_codec[7:] in ('gif','apng','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
                 self.isseq=subprocess.Popen(r'ffprobe -hide_banner -count_packets -print_format csv -select_streams V -show_entries stream=nb_read_packets -threads 4 -i "{INP}"'.format(INP=self.in_fp),shell=True,stdout=subprocess.PIPE).stdout.read()
                 self.isseq = not self.isseq==b'stream,1\r\n'
             else:
                 self.isseq = False
         else:
             return False
+
+        if not self.noicc and not self.probe_codec[7:] in ('h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
+            self.hasicc = not subprocess.run(r'magick "{INP}" "{OUT}.{PID}.icc"'.format(INP=self.in_fp,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),shell=True).returncode
+        else:
+            self.hasicc = False
 
         self.probe_pixfmt = re.search(', yuv[j]*[420]{3}p[0-9]*[lbe]*|, [a]*rgb[albepf0-9]*|, [a]*bgr[albepf0-9]*|, [a]*gbr[albepf0-9]*|, pal8|, gray[0-9flbe]*|, ya[0-9]+[lbe*]',probe_result)
         self.probe_alpha = re.search('yuva4|argb|bgra|rgba|gbra|ya[81]',probe_result)
@@ -261,7 +264,7 @@ class makeheic:
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
-            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M -i "{INP}" -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd)
+            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST} -i "{INP}" -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,ST=self.trim)
 
             self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.hevc":primary{ICC} -brand heis -new "{OUT}" & mp4box -add "make.heic.{PID}.hevc" -brand heis "{OUT}" && del "make.heic.{PID}.hevc" && del "{TMPF}\make.heic.thumb.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
             if self.hwenc==None:
@@ -305,7 +308,7 @@ class makeheic:
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
-            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M -i "{INP}" -vf {PD}{SF},format={PF} -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc)
+            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST} -i "{INP}" -vf {PD}{SF},format={PF} -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc,ST=self.trim)
 
             self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.hevc":primary{ICC} -brand heis -new "{OUT}" & mp4box -add "make.heic.{PID}.hevc" -brand heis "{OUT}" && del "make.heic.{PID}.hevc" && del "{TMPF}\make.heic.thumb.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
 
@@ -393,6 +396,7 @@ if __name__ == '__main__':
     parser.add_argument('-hwenc',type=str,required=False,help='Seriously? Don\'t.\n ',default='none')
     parser.add_argument('-e','--exiftr',type=int,required=False,help='Transfer EXIF, set 1/0 for on/off, default 0(off).\n ',default=0)
     parser.add_argument('--fast',required=False,help='Some x265 parameter tweaks, will affect compression ratio, \nbut make encoding faster up to 6 times than default.\n ',default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('-st','--seqtrim',type=str,required=False,help='Trim input when encoding sequence. For example "60,65" means encode 60s to 65s of input.\n ',default='')
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     parser.parse_args(sys.argv[1:],args)
     pid = os.getpid()
@@ -413,7 +417,10 @@ if __name__ == '__main__':
     if args.x265_params != '':
         if args.x265_params[0] != ':':
             args.x265_params = ':' + args.x265_params
-    
+    args.seqtrim = args.seqtrim.split(',')
+    if len(args.seqtrim)!=2:
+        args.seqtrim=[]
+
     i=0
     jobs=[]
     for in_fp in args.INPUTFILE:
@@ -452,7 +459,7 @@ if __name__ == '__main__':
                     out_fp_sf=out_fp+'\\'+file.stem+'.heic'
                 if args.skip and os.path.exists(out_fp_sf):
                     continue
-                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb])
+                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim])
 
         else:
             if args.o == None:
@@ -463,7 +470,7 @@ if __name__ == '__main__':
             out_fp = os.path.abspath(out_fp)
             if args.skip and os.path.exists(out_fp):
                 continue
-            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb])
+            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim])
 
     if args.j>1 and len(jobs):
         with Pool(processes=args.j,initializer=pool_init) as pool:
