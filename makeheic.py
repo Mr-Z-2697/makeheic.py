@@ -191,18 +191,18 @@ class makeheic:
         ff_pixfmt='yuv{S}p{D}'.format(S=self.sample,D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '')
         ff_pixfmt_a='gray{D}'.format(D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '')
         if self.lpbo:
-            rs=f'libplacebo=w=round(iw*{self.scale[0]}):h=round(ih*{self.scale[1]}):upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=-1,' if not self.scale[0]==self.scale[1]==1 else ''
-            scale_filter = r'lut=c3=maxval,hwupload,{RS}libplacebo=format={FMT}:colorspace={MAT_L}:range=full:upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=2,hwdownload'.format(FMT=ff_pixfmt,MAT_L=self.mat_l,RS=rs)
+            rs=f'libplacebo=w=round(iw*{self.scale[0]}):h=round(ih*{self.scale[1]}):upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=1,' if not self.scale[0]==self.scale[1]==1 else ''
+            scale_filter = r'lut=c3=maxval,hwupload,{RS}libplacebo=format={FMT}:colorspace={MAT_L}:range=full:upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=1,hwdownload'.format(FMT=ff_pixfmt,MAT_L=self.mat_l,RS=rs)
         elif c_resubs or self.sws or ((self.probe_alpha or self.alpha) and self.alpbl) or (not self.scale[0]==self.scale[1]==1):
-            scale_filter = r'scale=w=round(iw*{FW}):h=round(ih*{FH}):out_range=pc:flags=spline:sws_dither=ed:gamma=false:out_v_chr_pos={VC}:out_h_chr_pos={HC}:out_color_matrix={MAT_L}{ABL}'.format(MAT_L=self.mat_l,VC=(127 if self.subs_h else 0),HC=(127 if self.subs_w else 0),ABL=':alphablend='+str(self.alpbl) if self.alpbl else '',FW=self.scale[0],FH=self.scale[1])
+            scale_filter = r'scale=w=round(iw*{FW}):h=round(ih*{FH}):out_range=pc:flags=spline:gamma=false:out_v_chr_pos={VC}:out_h_chr_pos={HC}:out_color_matrix={MAT_L}{ABL}'.format(MAT_L=self.mat_l,VC=(127 if self.subs_h else 0),HC=(127 if self.subs_w else 0),ABL=':alphablend='+str(self.alpbl) if self.alpbl else '',FW=self.scale[0],FH=self.scale[1])
             
         else:
-            scale_filter = r'zscale=r=pc:f=spline36:d=error_diffusion:c=1:m={MAT_S}'.format(MAT_S=self.mat_s)
+            scale_filter = r'zscale=r=pc:f=spline36:d=ordered:c=1:m={MAT_S}'.format(MAT_S=self.mat_s)
 
         if not self.scale[0]==self.scale[1]==1:
-            scale_filter_a = r'extractplanes=a,scale=w=round(iw*{FW}):h=round(ih*{FH}):in_range=pc:out_range=pc:flags=spline:sws_dither=ed:gamma=true:out_color_matrix={MAT_L},'.format(MAT_L=self.mat_l,FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])\
+            scale_filter_a = r'extractplanes=a,scale=w=round(iw*{FW}):h=round(ih*{FH}):in_range=pc:out_range=pc:flags=spline:gamma=true:out_color_matrix={MAT_L},'.format(MAT_L=self.mat_l,FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])\
                 if not self.lpbo else\
-                r'hwupload,libplacebo=w=round(iw*{FW}):h=round(ih*{FH}):upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=-1,hwdownload,format={FMT},extractplanes=a,'.format(FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])
+                r'hwupload,libplacebo=w=round(iw*{FW}):h=round(ih*{FH}):upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=1,hwdownload,format={FMT},extractplanes=a,'.format(FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])
         else:
             scale_filter_a = 'extractplanes=a,'
 
