@@ -367,7 +367,7 @@ if __name__ == '__main__':
     parser.add_argument('-o',type=str,required=False,help='Output(s), default input full name (ext. incl.) + ".heic" for file, \ninput main folder path + "_heic" and filename exts. replaced by ".heic" for folder.\n ',nargs='*')
     parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".\n ',action='store_true')
     parser.add_argument('-g',required=False,help='Grid mode switch and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and don\'t use the f___ing odd numbers with yuv420, things will be easier. \nMany softwares can\'t open 10bit gridded images, you can try to upgrade them.\n ',default=False)
-    parser.add_argument('--delete-src',required=False,help='Delete source file switch, add this argument means "ON".\n ',default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--delete-src',required=False,help='Delete source file switch.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('--sws',required=False,help='Force to use swscale switch.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.\n ',action='store_true')
     parser.add_argument('--no-alpha',required=False,help='Ignore alpha plane switch.\n ',action='store_true')
