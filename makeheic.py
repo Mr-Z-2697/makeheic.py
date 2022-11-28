@@ -99,7 +99,7 @@ class makeheic:
         if self.probe_codec:
             self.probe_codec=self.probe_codec.group()
             #I'm kinda lazy, feel free to add whatever ffmpeg supports.
-            if not self.probe_codec[7:] in ('webp','png','mjpeg','bmp','ppm','tiff','gif','apng','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
+            if not self.probe_codec[7:] in ('jpegxl','webp','png','mjpeg','bmp','ppm','tiff','gif','apng','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
                 print(r'input file "{INP}" codec not supported.'.format(INP=self.in_fp))
                 return False
             #Stupid workaround for non-animated webp with animated webp style metadata
