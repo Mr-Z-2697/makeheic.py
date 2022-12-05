@@ -190,6 +190,8 @@ class makeheic:
         c_resubs = (self.probe_subs_w != self.subs_w) or (self.probe_subs_h != self.subs_h)
         ff_pixfmt='yuv{S}p{D}'.format(S=self.sample,D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '')
         ff_pixfmt_a='gray{D}'.format(D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '')
+        if (', gray' in self.probe_pixfmt or ', ya' in self.probe_pixfmt) and not self.lpbo:
+            ff_pixfmt=ff_pixfmt_a
         if self.lpbo:
             rs=f'libplacebo=w=round(iw*{self.scale[0]}):h=round(ih*{self.scale[1]}):upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=1,' if not self.scale[0]==self.scale[1]==1 else ''
             scale_filter = r'lut=c3=maxval,hwupload,{RS}libplacebo=format={FMT}:colorspace={MAT_L}:range=full:upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=1,hwdownload'.format(FMT=ff_pixfmt,MAT_L=self.mat_l,RS=rs)
@@ -197,7 +199,7 @@ class makeheic:
             scale_filter = r'scale=w=round(iw*{FW}):h=round(ih*{FH}):out_range=pc:flags=spline:gamma=false:out_v_chr_pos={VC}:out_h_chr_pos={HC}:out_color_matrix={MAT_L}{ABL}'.format(MAT_L=self.mat_l,VC=(127 if self.subs_h else 0),HC=(127 if self.subs_w else 0),ABL=':alphablend='+str(self.alpbl) if self.alpbl else '',FW=self.scale[0],FH=self.scale[1])
             
         else:
-            scale_filter = r'zscale=r=pc:f=spline36:d=ordered:c=1:m={MAT_S}'.format(MAT_S=self.mat_s if not 'gray' in self.probe_pixfmt else 'input')
+            scale_filter = r'zscale=r=pc:f=spline36:d=ordered:c=1:m={MAT_S}'.format(MAT_S=self.mat_s if not ', gray' in self.probe_pixfmt or ', ya' in self.probe_pixfmt else 'input')
 
         if not self.scale[0]==self.scale[1]==1:
             scale_filter_a = r'extractplanes=a,scale=w=round(iw*{FW}):h=round(ih*{FH}):in_range=pc:out_range=pc:flags=spline:gamma=true:out_color_matrix={MAT_L},'.format(MAT_L=self.mat_l,FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])\
