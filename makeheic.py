@@ -9,13 +9,8 @@ from multiprocessing import Pool
 import signal
 import tempfile
 
-class args:
-    pass
-
-
-
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=18,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none',exiftr=0,thumbnail=0,trim=[]):
+    def __init__(self,in_fp,out_fp,crf=18,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none',exiftr=0,thumbnail=0,trim=[],rgb_color=False):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -78,6 +73,7 @@ class makeheic:
         self.exiftr=True if exiftr==1 else False
         self.thumbnail=thumbnail
         self.trim=' -ss {S} -to {T}'.format(S=trim[0],T=trim[1]) if len(trim)==2 else ''
+        self.rgb_color=rgb_color
 
     def run_probe(self):
         probe = subprocess.Popen(r'ffprobe -hide_banner -i "{INP}"'.format(INP=self.in_fp),shell=True,stderr=subprocess.PIPE)
@@ -145,7 +141,11 @@ class makeheic:
             self.probe_subs_w=1
             self.probe_subs_h=1
 
-        if probe_mat and self.mat==None:
+        if self.rgb_color:
+            self.mat_l='gbr'
+            self.mat_s='gbr'
+            self.mat_a='bt709'
+        elif probe_mat and self.mat==None:
             self.mat_l=('smpte170m' if probe_mat.group(0)=='bt470bg' else 'bt709')
             self.mat_s=('170m' if probe_mat.group(0)=='bt470bg' else '709')
         else:
@@ -188,8 +188,8 @@ class makeheic:
         #Use swscale to handle scaling and weird "subsampled but not mod by 2" images, and use zimg for better conversion if there's no any resampling(scaling).
         #Or you can manually choose libplacebo, which should do scaling like swscale, but there might be some problems, and due to some limitations I have to make more stupid workarounds.
         c_resubs = (self.probe_subs_w != self.subs_w) or (self.probe_subs_h != self.subs_h)
-        ff_pixfmt='yuv{S}p{D}'.format(S=self.sample,D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '')
-        ff_pixfmt_a='gray{D}'.format(D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '')
+        ff_pixfmt='yuv{S}p{D}'.format(S=self.sample,D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '') if not self.rgb_color else 'gbrp'
+        ff_pixfmt_a='gray{D}'.format(D=(str(self.bits) if self.bits>8 else '')) + ('le' if self.bits>8 else '') if not self.rgb_color else 'gray'
         if (', gray' in self.probe_pixfmt or ', ya' in self.probe_pixfmt) and not self.lpbo:
             ff_pixfmt=ff_pixfmt_a
         if self.lpbo:
@@ -202,7 +202,7 @@ class makeheic:
             scale_filter = r'zscale=r=pc:f=spline36:d=ordered:c=1:m={MAT_S}'.format(MAT_S=self.mat_s if not ', gray' in self.probe_pixfmt or ', ya' in self.probe_pixfmt else 'input')
 
         if not self.scale[0]==self.scale[1]==1:
-            scale_filter_a = r'extractplanes=a,scale=w=round(iw*{FW}):h=round(ih*{FH}):in_range=pc:out_range=pc:flags=spline:gamma=true:out_color_matrix={MAT_L},'.format(MAT_L=self.mat_l,FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])\
+            scale_filter_a = r'extractplanes=a,scale=w=round(iw*{FW}):h=round(ih*{FH}):in_range=pc:out_range=pc:flags=spline:gamma=true:out_color_matrix={MAT_A},'.format(MAT_A=self.mat_l if not self.rgb_color else self.mat_a,FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])\
                 if not self.lpbo else\
                 r'hwupload,libplacebo=w=round(iw*{FW}):h=round(ih*{FH}):upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=1,hwdownload,format={FMT},extractplanes=a,'.format(FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])
         else:
@@ -247,18 +247,18 @@ class makeheic:
 
                 self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_A}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
 
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
             else:
-                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
 
                 for x in range(1,self.items+1):
                     refs+=f'ref=dimg,{x}:'
 
                 self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -r 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -c:v libx265 -preset 6 -crf {Q2} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_A}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
 
                 for x in range(self.items+2,self.items*2+2):
                     refs2+=f'ref=dimg,{x}:'
@@ -275,7 +275,7 @@ class makeheic:
         self.ff_cmd_img=self.ff_cmd_img.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),TMBN=tmbn)
         self.m4b_cmd_img=self.m4b_cmd_img.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(int(self.probe_res_w*self.scale[0]))+'x'+str(int(self.probe_res_h*self.scale[1])),BN=brand,TMPF=self.temp_folder,GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,TMBN=tmbn_m4b,TMBD=tmbn_del)
 
-        self.ff_cmd_a=self.ff_cmd_a.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,SFA=scale_filter_a,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),TMBN=tmbn)
+        self.ff_cmd_a=self.ff_cmd_a.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,SFA=scale_filter_a,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),TMBN=tmbn,MAT_A=self.mat_l if not self.rgb_color else self.mat_a)
         self.m4b_cmd_a=self.m4b_cmd_a.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(int(self.probe_res_w*self.scale[0]))+'x'+str(int(self.probe_res_h*self.scale[1])),BN=brand,TMPF=self.temp_folder,GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,GID=self.items+1,REFS2=refs2,TMBN=tmbn_m4b,TMBD=tmbn_del)
 
         if self.hwenc==None:
@@ -319,13 +319,13 @@ class makeheic:
         self.ff_cmd_img=self.ff_cmd_img.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),TMBN=tmbn)
         self.m4b_cmd_img=self.m4b_cmd_img.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,WxH=str(int(self.probe_res_w*self.scale[0]))+'x'+str(int(self.probe_res_h*self.scale[1])),BN=brand,TMPF=self.temp_folder,GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,TMBN=tmbn_m4b,TMBD=tmbn_del)
 
-        self.ff_cmd_a=self.ff_cmd_a.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,SFA=scale_filter_a,HWE=self.hwenc,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),TMBN=tmbn)
+        self.ff_cmd_a=self.ff_cmd_a.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,PF2=ff_pixfmt_a,Q2=self.acrf,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,SFA=scale_filter_a,HWE=self.hwenc,PW=self.g_padded_w,PH=self.g_padded_h,UNT=str(self.g_columns)+'x'+str(self.g_rows),TMBN=tmbn,MAT_A=self.mat_l if not self.rgb_color else self.mat_a)
         self.m4b_cmd_a=self.m4b_cmd_a.format(OUT=self.out_fp,PID=self.pid,ICC=icc_opt,WxH=str(int(self.probe_res_w*self.scale[0]))+'x'+str(int(self.probe_res_h*self.scale[1])),BN=brand,TMPF=self.temp_folder,GS=str(self.g_rows)+'x'+str(self.g_columns),REFS=refs,GID=self.items+1,REFS2=refs2,TMBN=tmbn_m4b,TMBD=tmbn_del)
         return True
 ########################################
 
     def encode(self):
-        
+        print(self.ff_cmd_a)
         if self.isseq:
             subprocess.run(self.ff_cmd_seq,shell=True)
             subprocess.run(self.m4b_cmd_seq,shell=True)
@@ -379,6 +379,7 @@ if __name__ == '__main__':
     parser.add_argument('-m','--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. \nIf a input file is in YUV, it\'s original matrix will be "preserved" if this option isn\'t set.\n ',default=None)
     parser.add_argument('-b','--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.\n ',default=10)
     parser.add_argument('-c','--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"\n ',default='444')
+    parser.add_argument('--rgb-color',required=False,help='Use RGB instead of YUV. No affect on alpha channel.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('--sao',required=False,help='Turn SAO off or on, 0 or 1, 0 is off, 1 is on, default 0.\n ',default=None)
     parser.add_argument('--coffs',required=False,help='Chroma QP offset, [-12..12]. Default -2 for 420, 1 for 444. \nUse +n for offset to default(n can be negative).\n ',default=None)
     parser.add_argument('--psy-rdoq',required=False,help='Same with x265, default 8.\n ',default=None)
@@ -400,7 +401,7 @@ if __name__ == '__main__':
     parser.add_argument('--fast',required=False,help='Some x265 parameter tweaks, will affect compression ratio, \nbut make encoding faster up to 6 times than default.\n ',default=False,action=argparse.BooleanOptionalAction)
     parser.add_argument('-st','--seqtrim',type=str,required=False,help='Trim input when encoding sequence. For example "60,65" means encode 60s to 65s of input.\n ',default='')
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
-    parser.parse_args(sys.argv[1:],args)
+    args=parser.parse_args(sys.argv[1:])
     pid = os.getpid()
     if args.g=='False':
         args.g=False
@@ -416,6 +417,8 @@ if __name__ == '__main__':
     args.icc = not args.icc
     if args.fast:
         args.x265_params = args.x265_params + ':rdoq-level=0:min-cu-size=32:max-tu-size=8'
+    if args.q == -1:
+        args.x265_params = args.x265_params + ':lossless=1'
     if args.x265_params != '':
         if args.x265_params[0] != ':':
             args.x265_params = ':' + args.x265_params
@@ -461,7 +464,7 @@ if __name__ == '__main__':
                     out_fp_sf=out_fp+'\\'+file.stem+'.heic'
                 if args.skip and os.path.exists(out_fp_sf):
                     continue
-                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim])
+                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim,args.rgb_color])
 
         else:
             if args.o == None:
@@ -472,7 +475,7 @@ if __name__ == '__main__':
             out_fp = os.path.abspath(out_fp)
             if args.skip and os.path.exists(out_fp):
                 continue
-            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim])
+            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim,args.rgb_color])
 
     if args.j>1 and len(jobs):
         with Pool(processes=args.j,initializer=pool_init) as pool:
