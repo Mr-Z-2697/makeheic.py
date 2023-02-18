@@ -325,7 +325,7 @@ class makeheic:
 ########################################
 
     def encode(self):
-        print(self.ff_cmd_a)
+        
         if self.isseq:
             subprocess.run(self.ff_cmd_seq,shell=True)
             subprocess.run(self.m4b_cmd_seq,shell=True)
