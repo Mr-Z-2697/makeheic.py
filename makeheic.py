@@ -65,7 +65,7 @@ class makeheic:
         self.gos=gos
         self.medium_img=False
         self.temp_folder=tempfile.gettempdir() if tempfolder==None else tempfolder
-        self.crft=crf+6 if crft==None else crft
+        self.crft=crf+6 if crf<=51-6 else 51 if crft==None else crft
         self.alpbl=alpbl
         self.lpbo=lpbo
         self.scale=scale
