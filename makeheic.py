@@ -325,25 +325,29 @@ class makeheic:
 ########################################
 
     def encode(self):
-        
+        err=0
         if self.isseq:
-            subprocess.run(self.ff_cmd_seq,shell=True)
-            subprocess.run(self.m4b_cmd_seq,shell=True)
+            err+=subprocess.run(self.ff_cmd_seq,shell=True).returncode
+            err+=subprocess.run(self.m4b_cmd_seq,shell=True).returncode
         elif (self.probe_alpha or self.alpha) and not self.noalpha:
-            subprocess.run(self.ff_cmd_a,shell=True)
-            subprocess.run(self.m4b_cmd_a,shell=True)
+            err+=subprocess.run(self.ff_cmd_a,shell=True).returncode
+            err+=subprocess.run(self.m4b_cmd_a,shell=True).returncode
         else:
-            subprocess.run(self.ff_cmd_img,shell=True)
-            subprocess.run(self.m4b_cmd_img,shell=True)
+            err+=subprocess.run(self.ff_cmd_img,shell=True).returncode
+            err+=subprocess.run(self.m4b_cmd_img,shell=True).returncode
         if self.hasicc:
-            subprocess.run(r'del {TMPF}\make.heic.{PID}.icc'.format(PID=self.pid,TMPF=self.temp_folder),shell=True)
+            err+=subprocess.run(r'del {TMPF}\make.heic.{PID}.icc'.format(PID=self.pid,TMPF=self.temp_folder),shell=True).returncode
         if self.exiftr:
-            subprocess.run(self.et_cmd,shell=True)
-        #Delete source file or not?
-        if self.delsrc or self.medium_img:
+            err+=subprocess.run(self.et_cmd,shell=True).returncode
+        if self.medium_img:
             os.remove(self.in_fp)
-        if self.medium_img and self.delsrc:
-            os.remove(self.src_fp)
+        #Delete source file or not?
+        if err==0 and os.path.exists(out_fp):
+            if self.delsrc:
+                if self.medium_img:
+                    os.remove(self.src_fp)
+                else:
+                    os.remove(self.in_fp)
 
     def make(self):
         if not self.run_probe():
