@@ -348,12 +348,14 @@ class makeheic:
                     os.remove(self.src_fp)
                 else:
                     os.remove(self.in_fp)
+        return err
 
     def make(self):
         if not self.run_probe():
             return False
         self.cmd_line_gen()
-        self.encode()
+        if self.encode():
+            return False
         return True
 
 def pool_init():
