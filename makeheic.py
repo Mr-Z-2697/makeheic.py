@@ -245,7 +245,7 @@ class makeavif:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
             self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST} -i "{INP}" -vf {PD}{SF},format={PF} -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} -vsync vfr "{TMPF}\make.heic.{PID}.mp4" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} "{TMPF}\make.heic.thumb.{PID}.ivf" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,P=self.preset,MAT_L=self.mat_l,PF=ff_pixfmt,PID=self.pid,TMPF=self.temp_folder,HWD=hwd,ST=self.trim)
 
-            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.ivf":primary{ICC} -brand avis -new "{OUT}" & mp4box -add "make.heic.{PID}.mp4" -brand avis "{OUT}" && del "make.heic.{PID}.ivf" && del "{TMPF}\make.heic.thumb.{PID}.ivf"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
+            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.ivf":primary{ICC} -brand avis -new "{OUT}" & mp4box -add "make.heic.{PID}.mp4" -brand avis "{OUT}" && del "make.heic.{PID}.mp4" && del "{TMPF}\make.heic.thumb.{PID}.ivf"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
 
             return True
 ########################################
