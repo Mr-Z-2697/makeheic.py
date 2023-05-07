@@ -365,41 +365,74 @@ def makeheic_wrapper(args):
 if __name__ == '__main__':
     #Arguments, ordinary stuff I guess.
     parser = argparse.ArgumentParser(description='HEIC encode script using ffmpeg & mp4box.',formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-q',type=float,required=False,help='Quality(crf), default 18.\n ',default=18)
+    parser.add_argument('-q',type=float,required=False,help='Quality(crf), default 18.\n ',
+                        default=18)
     parser.add_argument('-o',type=str,required=False,help='Output(s), default input full name (ext. incl.) + ".heic" for file, \ninput main folder path + "_heic" and filename exts. replaced by ".heic" for folder.\n ',nargs='*')
-    parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".\n ',action='store_true')
-    parser.add_argument('-g',required=False,help='Grid mode switch and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and don\'t use the f___ing odd numbers with yuv420, things will be easier. \nMany softwares can\'t open 10bit gridded images, you can try to upgrade them.\n ',default=False)
-    parser.add_argument('--delete-src',required=False,help='Delete source file switch.\n ',default=False,action=argparse.BooleanOptionalAction)
-    parser.add_argument('--sws',required=False,help='Force to use swscale switch.\n ',default=False,action=argparse.BooleanOptionalAction)
-    parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.\n ',action='store_true')
-    parser.add_argument('--no-alpha',required=False,help='Ignore alpha plane switch.\n ',action='store_true')
-    parser.add_argument('--alphaq',type=int,required=False,help='Alpha quality(crf), default None(same as -q).\n ',default=None)
-    parser.add_argument('--icc',required=False,help='Ignore icc profile of source image switch.\n ',default=True,action=argparse.BooleanOptionalAction)
+    parser.add_argument('-s',required=False,help='Silent mode, disables "enter to exit".\n ',
+                        action='store_true')
+    parser.add_argument('-g',required=False,help='Grid mode switch and size, should be 1 or 2 interger(s) in "WxH" format, or False, default False. \nIf only 1 interger is specified, it is used for both W and H. \nOh, and don\'t use the f___ing odd numbers with yuv420, things will be easier. \nMany softwares can\'t open 10bit gridded images, you can try to upgrade them.\n ',
+                        default=False)
+    parser.add_argument('--delete-src',required=False,help='Delete source file switch.\n ',
+                        default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--sws',required=False,help='Force to use swscale switch.\n ',
+                        default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--alpha',required=False,help='Force to try to encode alpha plane switch.\n ',
+                        action='store_true')
+    parser.add_argument('--no-alpha',required=False,help='Ignore alpha plane switch.\n ',
+                        action='store_true')
+    parser.add_argument('--alphaq',type=int,required=False,help='Alpha quality(crf), default None(same as -q).\n ',
+                        default=None)
+    parser.add_argument('--icc',required=False,help='Ignore icc profile of source image switch.\n ',
+                        default=True,action=argparse.BooleanOptionalAction)
     #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
-    parser.add_argument('-m','--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. \nIf a input file is in YUV, it\'s original matrix will be "preserved" if this option isn\'t set.\n ',default=None)
-    parser.add_argument('-b','--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.\n ',default=10)
-    parser.add_argument('-c','--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"\n ',default='444')
-    parser.add_argument('--rgb-color',required=False,help='Use RGB instead of YUV. No affect on alpha channel.\n ',default=False,action=argparse.BooleanOptionalAction)
-    parser.add_argument('--sao',required=False,help='Turn SAO off or on, 0 or 1, 0 is off, 1 is on, default 0.\n ',default=None)
-    parser.add_argument('--coffs',required=False,help='Chroma QP offset, [-12..12]. Default -2 for 420, 1 for 444. \nUse +n for offset to default(n can be negative).\n ',default=None)
-    parser.add_argument('--psy-rdoq',required=False,help='Same with x265, default 8.\n ',default=None)
-    parser.add_argument('--sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',default=False,action=argparse.BooleanOptionalAction)
-    parser.add_argument('-x265-params',required=False,help='Custom x265 parameters, in ffmpeg style. Appends to parameters set by above arguments.\n ',default='')
-    parser.add_argument('--kfs',required=False,help='Keep folder structure.\n ',default=True,action=argparse.BooleanOptionalAction)
-    parser.add_argument('--sf',required=False,help='Include subfolder or not.\n ',default=True,action=argparse.BooleanOptionalAction)
-    parser.add_argument('--skip',required=False,help='Skip existing output file.\n ',default=False,action=argparse.BooleanOptionalAction)
-    parser.add_argument('--gos',required=False,help='Auto single-grid odd res and subsampled images if grid isn\'t specified and effective. \nThis script does "pad and set res" anyway, but for some weird reason add a single-grid \nmake more software to recognize the specified res. Default may change in the future.\n ',default=True,action=argparse.BooleanOptionalAction)
-    parser.add_argument('-j',type=int,required=False,help='Parallel jobs, default 1. This will make programs\' info output a scramble.\n ',default=1)
-    parser.add_argument('-tmb',type=int,required=False,help='Create thumbnail for image, set number for auto-scale thumbnail width(px), 0 to disable. \nDefault 0. This differs from sequence thumnail.\n ',default=0)
-    parser.add_argument('-qtm',type=str,required=False,help='Sequence image thumbnail quality. Experimental. Default q+6.\n ',default=None)
-    parser.add_argument('-tmpf',type=str,required=False,help='Temp folder location. Default automatic find system temp folder.\n ',default=None)
-    parser.add_argument('-alpbl','--alphablend',type=int,required=False,help='Alphablend when encoding rgb channels of transparent image, default 0.\n ',default=0)
-    parser.add_argument('--lpbo',required=False,help='Use libplacebo to handle the color space conversion, default false.\n ',default=False,action=argparse.BooleanOptionalAction)
-    parser.add_argument('-scale',type=str,required=False,help='Scale factor, can be a number for both W&H or comma seperated two numbers for each (W,H).\n Range is 0~1, Default 1,1.\n ',default='1,1')
-    parser.add_argument('-hwenc',type=str,required=False,help='Seriously? Don\'t.\n ',default='none')
-    parser.add_argument('-e','--exiftr',type=int,required=False,help='Transfer EXIF, set 1/0 for on/off, default 0(off).\n ',default=0)
-    parser.add_argument('--fast',required=False,help='Some x265 parameter tweaks, will affect compression ratio, \nbut make encoding faster up to 6 times than default.\n ',default=False,action=argparse.BooleanOptionalAction)
-    parser.add_argument('-st','--seqtrim',type=str,required=False,help='Trim input when encoding sequence. For example "60,65" means encode 60s to 65s of input.\n ',default='')
+    parser.add_argument('-m','--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. \nIf a input file is in YUV, it\'s original matrix will be "preserved" if this option isn\'t set.\n ',
+                        default=None)
+    parser.add_argument('-b','--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.\n ',
+                        default=10)
+    parser.add_argument('-c','--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"\n ',
+                        default='444')
+    parser.add_argument('--rgb-color',required=False,help='Use RGB instead of YUV. No affect on alpha channel.\n ',
+                        default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--sao',required=False,help='Turn SAO off or on, 0 or 1, 0 is off, 1 is on, default 0.\n ',
+                        default=None)
+    parser.add_argument('--coffs',required=False,help='Chroma QP offset, [-12..12]. Default -2 for 420, 1 for 444. \nUse +n for offset to default(n can be negative).\n ',
+                        default=None)
+    parser.add_argument('--psy-rdoq',required=False,help='Same with x265, default 8.\n ',
+                        default=None)
+    parser.add_argument('--sp',required=False,help='A quick switch to set sao=1 coffs=+2 psy-rdoq=1. \nMay be helpful when compressing pictures to a small file size.\n ',
+                        default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('-x265-params',required=False,help='Custom x265 parameters, in ffmpeg style. Appends to parameters set by above arguments.\n ',
+                        default='')
+    parser.add_argument('--kfs',required=False,help='Keep folder structure.\n ',
+                        default=True,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--sf',required=False,help='Include subfolder or not.\n ',
+                        default=True,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--skip',required=False,help='Skip existing output file.\n ',
+                        default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('--gos',required=False,help='Auto single-grid odd res and subsampled images if grid isn\'t specified and effective. \nThis script does "pad and set res" anyway, but for some weird reason add a single-grid \nmake more software to recognize the specified res. Default may change in the future.\n ',
+                        default=True,action=argparse.BooleanOptionalAction)
+    parser.add_argument('-j',type=int,required=False,help='Parallel jobs, default 1. This will make programs\' info output a scramble.\n ',
+                        default=1)
+    parser.add_argument('-tmb',type=int,required=False,help='Create thumbnail for image, set number for auto-scale thumbnail width(px), 0 to disable. \nDefault 0. This differs from sequence thumnail.\n ',
+                        default=0)
+    parser.add_argument('-qtm',type=str,required=False,help='Sequence image thumbnail quality. Experimental. Default q+6.\n ',
+                        default=None)
+    parser.add_argument('-tmpf',type=str,required=False,help='Temp folder location. Default automatic find system temp folder.\n ',
+                        default=None)
+    parser.add_argument('-alpbl','--alphablend',type=int,required=False,help='Alphablend when encoding rgb channels of transparent image, default 0.\n ',
+                        default=0)
+    parser.add_argument('--lpbo',required=False,help='Use libplacebo to handle the color space conversion, default false.\n ',
+                        default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('-scale',type=str,required=False,help='Scale factor, can be a number for both W&H or comma seperated two numbers for each (W,H).\n Range is 0~1, Default 1,1.\n ',
+                        default='1,1')
+    parser.add_argument('-hwenc',type=str,required=False,help='Seriously? Don\'t.\n ',
+                        default='none')
+    parser.add_argument('-e','--exiftr',type=int,required=False,help='Transfer EXIF, set 1/0 for on/off, default 0(off).\n ',
+                        default=0)
+    parser.add_argument('--fast',required=False,help='Some x265 parameter tweaks, will affect compression ratio, \nbut make encoding faster up to 6 times than default.\n ',
+                        default=False,action=argparse.BooleanOptionalAction)
+    parser.add_argument('-st','--seqtrim',type=str,required=False,help='Trim input when encoding sequence. For example "60,65" means encode 60s to 65s of input.\n ',
+                        default='')
     parser.add_argument('INPUTFILE',type=str,help='Input file(s) or folder(s).',nargs='+')
     args=parser.parse_args(sys.argv[1:])
     pid = os.getpid()
