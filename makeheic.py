@@ -342,7 +342,7 @@ class makeheic:
         if self.medium_img:
             os.remove(self.in_fp)
         #Delete source file or not?
-        if err==0 and os.path.exists(out_fp):
+        if err==0 and os.path.exists(self.out_fp):
             if self.delsrc:
                 if self.medium_img:
                     os.remove(self.src_fp)
