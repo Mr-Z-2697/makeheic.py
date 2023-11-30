@@ -228,14 +228,14 @@ class makeavif:
 
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.ivf":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.ivf":ref=auxl,1:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.ivf" && del "make.heic.{PID}.ivf"{TMBD}'
             else:
-                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -vsync vfr -r 1 -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} "{TMPF}\make.heic.{PID}.ivf"{TMBN} -y'
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,{SF},format={PF} -fps_mode vfr -r 1 -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} "{TMPF}\make.heic.{PID}.ivf"{TMBN} -y'
 
                 for x in range(1,self.items+1):
                     refs+=f'ref=dimg,{x}:'
 
                 self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.ivf":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.ivf"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -vsync vfr -r 1 -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} "{TMPF}\make.heic.{PID}.ivf" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -vsync vfr -r 1 -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q2} "{TMPF}\make.heic.alpha.{PID}.ivf"{TMBN} -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1 -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF} -fps_mode vfr -r 1 -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} "{TMPF}\make.heic.{PID}.ivf" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,format={PF2} -fps_mode vfr -r 1 -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q2} "{TMPF}\make.heic.alpha.{PID}.ivf"{TMBN} -y'
 
                 for x in range(self.items+2,self.items*2+2):
                     refs2+=f'ref=dimg,{x}:'
@@ -243,7 +243,7 @@ class makeavif:
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.ivf":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.ivf":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.ivf" && del "make.heic.{PID}.ivf"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
-            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST} -i "{INP}" -vf {PD}{SF},format={PF} -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} -vsync vfr "{TMPF}\make.heic.{PID}.mp4" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} "{TMPF}\make.heic.thumb.{PID}.ivf" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,P=self.preset,MAT_L=self.mat_l,PF=ff_pixfmt,PID=self.pid,TMPF=self.temp_folder,HWD=hwd,ST=self.trim)
+            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST} -i "{INP}" -vf {PD}{SF},format={PF} -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} -fps_mode vfr "{TMPF}\make.heic.{PID}.mp4" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libsvtav1 -svtav1-params tune=0 -color_range pc -color_trc iec61966-2-1 -preset {P} -crf {Q} "{TMPF}\make.heic.thumb.{PID}.ivf" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,P=self.preset,MAT_L=self.mat_l,PF=ff_pixfmt,PID=self.pid,TMPF=self.temp_folder,HWD=hwd,ST=self.trim)
 
             self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.ivf":primary{ICC} -brand avis -new "{OUT}" & mp4box -add "make.heic.{PID}.mp4" -brand avis "{OUT}" && del "make.heic.{PID}.mp4" && del "{TMPF}\make.heic.thumb.{PID}.ivf"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
 
