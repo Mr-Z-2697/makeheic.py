@@ -570,6 +570,6 @@ if __name__ == '__main__':
                 except:
                     pass
 
-    print(fail,'conversion(s) failed.')
+    if fail: print(fail,'conversion(s) failed.')
     # if not args.s:
     #     input('enter to exit.')
