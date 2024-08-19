@@ -221,17 +221,17 @@ class makeheic:
             ff_pixfmt=ff_pixfmt_a
         if self.lpbo:
             rs=f'libplacebo=w=round(iw*{self.scale[0]}):h=round(ih*{self.scale[1]}):upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=1,' if not self.scale[0]==self.scale[1]==1 else ''
-            scale_filter = r'lut=c3=maxval,hwupload,{RS}libplacebo=format={FMT}:colorspace={MAT_L}:range=full:upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=1,hwdownload'.format(FMT=ff_pixfmt,MAT_L=self.mat_l,RS=rs)
+            scale_filter = r'lut=c3=maxval,hwupload,{RS}libplacebo=format={FMT}:colorspace={MAT_L}:range=full:upscaler=ewa_lanczos:downscaler=catmull_rom:dithering={DIT},hwdownload'.format(FMT=ff_pixfmt,MAT_L=self.mat_l,RS=rs,DIT=1 if self.depth<=8 else -1)
         elif c_resubs or self.sws or ((self.probe_alpha or self.alpha) and self.alpbl) or (not self.scale[0]==self.scale[1]==1):
             scale_filter = r'scale=w=round(iw*{FW}):h=round(ih*{FH}):out_range=pc:flags=spline:gamma=false:out_v_chr_pos={VC}:out_h_chr_pos={HC}:out_color_matrix={MAT_L}{ABL}'.format(MAT_L=self.mat_l,VC=(127 if self.subs_h else 0),HC=(127 if self.subs_w else 0),ABL=':alphablend='+str(self.alpbl) if self.alpbl else '',FW=self.scale[0],FH=self.scale[1])
             
         else:
-            scale_filter = r'zscale=r=pc:f=spline36:d=ordered:c=1:m={MAT_S}'.format(MAT_S=self.mat_s if not ', gray' in self.probe_pixfmt or ', ya' in self.probe_pixfmt else 'input')
+            scale_filter = r'zscale=r=pc:f=spline36:d={DIT}:c=1:m={MAT_S}'.format(DIT='ordered' if self.depth<=8 else 'none',MAT_S=self.mat_s if not ', gray' in self.probe_pixfmt or ', ya' in self.probe_pixfmt else 'input')
 
         if not self.scale[0]==self.scale[1]==1:
             scale_filter_a = r'extractplanes=a,scale=w=round(iw*{FW}):h=round(ih*{FH}):in_range=pc:out_range=pc:flags=spline:gamma=true:out_color_matrix={MAT_A},'.format(MAT_A=self.mat_l if not self.rgb_color else self.mat_a,FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])\
                 if not self.lpbo else\
-                r'hwupload,libplacebo=w=round(iw*{FW}):h=round(ih*{FH}):upscaler=ewa_lanczos:downscaler=catmull_rom:dithering=1,hwdownload,format={FMT},extractplanes=a,'.format(FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:])
+                r'hwupload,libplacebo=w=round(iw*{FW}):h=round(ih*{FH}):upscaler=ewa_lanczos:downscaler=catmull_rom:dithering={DIT},hwdownload,format={FMT},extractplanes=a,'.format(FW=self.scale[0],FH=self.scale[1],FMT=self.probe_pixfmt[2:],DIT=1 if self.depth<=8 else -1)
         else:
             scale_filter_a = 'extractplanes=a,'
 
@@ -420,7 +420,7 @@ if __name__ == '__main__':
     #New version of libheif seems to decode with matrixs accordingly, so I think it's better to use modern bt709 as default.
     parser.add_argument('-m','--mat',type=str,required=False,help='Matrix used to convert RGB input file, should be either bt709 or bt601 currently. \nIf a input file is in YUV, it\'s original matrix will be "preserved" if this option isn\'t set.\n ',
                         default=None)
-    parser.add_argument('-b','--depth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.\n ',
+    parser.add_argument('-b','--depth','--bitdepth',type=int,required=False,help='Bitdepth for hevc-yuv output, default 10.\n ',
                         default=10)
     parser.add_argument('-c','--sample',type=str,required=False,help='Chroma subsumpling for hevc-yuv output, default "444"\n ',
                         default='444')
