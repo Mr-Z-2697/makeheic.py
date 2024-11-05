@@ -10,7 +10,7 @@ import signal
 import tempfile
 
 class makeheic:
-    def __init__(self,in_fp,out_fp,crf=18,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,crft=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none',exiftr=0,thumbnail=0,trim=[],rgb_color=False):
+    def __init__(self,in_fp,out_fp,crf=18,delsrc=False,sws=False,alpha=False,noalpha=False,acrf=None,noicc=False,mat=None,depth=10,sample='444',grid=False,pid=choice(range(1000,10000)),sao=None,co=None,psy_rdoq=None,xp='',gos=True,tempfolder=None,alpbl=0,lpbo=False,scale=[1,1],hwenc='none',exiftr=0,thumbnail=0,trim=[],rgb_color=False):
         self.in_fp = in_fp
         self.out_fp = out_fp
         self.crf = crf
@@ -65,7 +65,6 @@ class makeheic:
         self.gos=gos
         self.medium_img=False
         self.temp_folder=tempfile.gettempdir() if tempfolder==None else tempfolder
-        self.crft=crf+6 if crf<=51-6 else 51 if crft==None else crft
         self.alpbl=alpbl
         self.lpbo=lpbo
         self.scale=scale
@@ -281,9 +280,9 @@ class makeheic:
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
-            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -fps_mode vfr -x265-params sao={SAO}:rect=0:ctu=32:b-intra=1:weightb=1:strong-intra-smoothing=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.mp4" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q2} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,ST=self.trim,Q2=self.crft,MED=' -f concat -safe 0' if self.medium_img else '')
+            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -fps_mode vfr -x265-params sao={SAO}:rect=0:ctu=32:b-intra=1:weightb=1:strong-intra-smoothing=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.mp4" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,ST=self.trim,MED=' -f concat -safe 0' if self.medium_img else '')
 
-            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.hevc":primary{ICC} -brand heis -add "make.heic.{PID}.mp4" -brand heis -new "{OUT}" && del "make.heic.{PID}.mp4" && del "{TMPF}\make.heic.thumb.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
+            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add "make.heic.{PID}.mp4" -add-image :primary:ref{ICC} -brand heis -new "{OUT}" && del "make.heic.{PID}.mp4"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
             if self.hwenc==None:
                 return True
 ########################################
@@ -325,9 +324,9 @@ class makeheic:
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
-            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -vf {PD}{SF},format={PF} -c:v {HWE} -color_range pc -colorspace {MAT_L} -qp {Q} -fps_mode vfr "{TMPF}\make.heic.{PID}.mp4" -y -map v:0 -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q2} "{TMPF}\make.heic.thumb.{PID}.hevc" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc,ST=self.trim,Q2=self.crft,MED=' -f concat -safe 0' if self.medium_img else '')
+            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -vf {PD}{SF},format={PF} -c:v {HWE} -color_range pc -colorspace {MAT_L} -qp {Q} -fps_mode vfr "{TMPF}\make.heic.{PID}.mp4" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc,ST=self.trim,MED=' -f concat -safe 0' if self.medium_img else '')
 
-            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add-image "make.heic.thumb.{PID}.hevc":primary{ICC} -brand heis -add "make.heic.{PID}.mp4" -brand heis -new "{OUT}" && del "make.heic.{PID}.mp4" && del "{TMPF}\make.heic.thumb.{PID}.hevc"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
+            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add "make.heic.{PID}.mp4" -add-image :primary:ref{ICC} -brand heis -new "{OUT}" && del "make.heic.{PID}.mp4"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder)
 
             return True
 ########################################
@@ -438,8 +437,6 @@ if __name__ == '__main__':
                         default=1)
     parser.add_argument('-tmb',type=int,required=False,help='Create thumbnail for image, set number for auto-scale thumbnail width(px), 0 to disable. \nDefault 0. This differs from sequence thumnail.\n ',
                         default=0)
-    parser.add_argument('-qtm',type=str,required=False,help='Sequence image thumbnail quality. Experimental. Default q+6.\n ',
-                        default=None)
     parser.add_argument('-tmpf',type=str,required=False,help='Temp folder location. Default automatic find system temp folder.\n ',
                         default=None)
     parser.add_argument('-alpbl','--alphablend',type=int,required=False,help='Alphablend when encoding rgb channels of transparent image, default 0.\n ',
@@ -520,7 +517,7 @@ if __name__ == '__main__':
                     out_fp_sf=out_fp+'\\'+file.stem+'.heic'
                 if args.skip and os.path.exists(out_fp_sf):
                     continue
-                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim,args.rgb_color])
+                jobs.append([in_fp_sf,out_fp_sf,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim,args.rgb_color])
 
         else:
             if args.o == None:
@@ -531,7 +528,7 @@ if __name__ == '__main__':
             out_fp = os.path.abspath(out_fp)
             if args.skip and os.path.exists(out_fp):
                 continue
-            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.qtm,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim,args.rgb_color])
+            jobs.append([in_fp,out_fp,args.q,args.delete_src,args.sws,args.alpha,args.no_alpha,args.alphaq,args.icc,args.mat,args.depth,args.sample,args.g,None,args.sao,args.coffs,args.psy_rdoq,args.x265_params,args.gos,args.tmpf,args.alphablend,args.lpbo,args.scale,args.hwenc,args.exiftr,args.tmb,args.seqtrim,args.rgb_color])
 
     if args.j>1 and len(jobs):
         with Pool(processes=args.j,initializer=pool_init) as pool:
