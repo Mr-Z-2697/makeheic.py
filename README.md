@@ -19,9 +19,9 @@
 1. Python 3.9+
 2. 启用了 libx265 编译的 FFmpeg 和 FFprobe.
 3. Mp4box(GPAC) 2.0+
-4. ImageMagick (只为icc复制和“webp动态图支持方案”所需要)
+4. ImageMagick (只为icc复制所需要)
 5. Exiftool，如果你需要复制exif到heic
-6. webpmux (只为“webp动态图支持方案”所需要)
+6. webpmux, anim_dump (只为“webp动态图支持方案”所需要)
 
 ## 使用方式：
 1. 拖放图片文件/文件夹到脚本（将会以默认参数进行批量编码，建议另存一份修改了默认参数的副本）
