@@ -82,7 +82,7 @@ class makeheic:
         if re.search('Could not find codec parameters for stream [0-9]* \\(Video: webp',probe_result):
             webpmux=subprocess.run(r'webpmux -info "{INP}"'.format(INP=self.in_fp),shell=True,stdout=subprocess.PIPE)
             if webpmux.returncode:
-                print('webp_anim: webpmux info failed')
+                print('webp_anim: webpmux info failed', file=sys.stderr)
                 return False
             webp_info=webpmux.stdout.decode()
             if 'animation' in webp_info:
@@ -97,13 +97,13 @@ class makeheic:
                     # if len(webp_frames_dur)>1:
                     #     _c_f.write("file '{OUT}.{PID}.{I}.png'\nduration {DUR}\n".format(DUR=1/1000,I=i,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid))
             else:
-                print('webp_anim: shit went very wrong')
+                print('webp_anim: shit went very wrong', file=sys.stderr)
                 return False
 
             #Quality option only affects compression level for png. 1 is the least compress one can get with IM. Intermedia image doesn't need high compress, but 10 is a nice tradeoff I suppose.
             #In fact, with webpmux I can extract frames "losslessly" but... I think it can't extract all frames in one time, that means run it multiple times? Not my favorite, at least for now.
             if subprocess.run(r'anim_dump -pam -folder "{TMPF}" -prefix "{OUT}.{PID}." "{INP}"'.format(TMPF=self.temp_folder,INP=self.in_fp,OUT=r'make.heic',PID=self.pid),shell=True).returncode:
-                print('webp_anim: anim_dump extract failed')
+                print('webp_anim: anim_dump extract failed', file=sys.stderr)
                 return False
             self.src_fp=self.in_fp
             self.in_fp=os.path.abspath(f'{self.temp_folder}\\make.heic.{self.pid}.concat')
@@ -116,7 +116,7 @@ class makeheic:
             self.probe_codec=self.probe_codec.group(1)
             #I'm kinda lazy, feel free to add whatever ffmpeg supports.
             if not self.probe_codec in ('jpegxl','webp','png','mjpeg','bmp','ppm','pam','tiff','gif','apng','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
-                print(r'input file "{INP}" codec not supported.'.format(INP=self.in_fp))
+                print(r'input file "{INP}" codec not supported.'.format(INP=self.in_fp), file=sys.stderr)
                 return False
             elif self.probe_codec in ('gif','apng','pam','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
                 self.isseq=subprocess.Popen(r'ffprobe -hide_banner -count_packets -print_format csv -select_streams V -show_entries stream=nb_read_packets -threads 4{MED} -i "{INP}"'.format(INP=self.in_fp,MED=' -f concat -safe 0' if self.medium_img else ''),shell=True,stdout=subprocess.PIPE).stdout.read()
@@ -134,7 +134,7 @@ class makeheic:
         self.probe_pixfmt = re.search(', yuv[j]*[420]{3}p[0-9]*[lbe]*|, [a]*rgb[albepf0-9]*|, [a]*bgr[albepf0-9]*|, [a]*gbr[albepf0-9]*|, pal8|, gray[0-9flbe]*|, ya[0-9]+[lbe*]',probe_result)
         self.probe_alpha = re.search('yuva4|argb|bgra|rgba|gbra|ya[81]',probe_result)
         if not self.probe_pixfmt:
-            print(r'input file "{INP}" pixel format not supported.'.format(INP=self.in_fp))
+            print(r'input file "{INP}" pixel format not supported.'.format(INP=self.in_fp), file=sys.stderr)
             return False
         else:
             self.probe_pixfmt = self.probe_pixfmt.group()
@@ -222,7 +222,7 @@ class makeheic:
         else:
             scale_filter_a = 'extractplanes=a,'
 
-        coffs = (-2 if self.subs_w and self.subs_h else 1)
+        coffs = (-4 if self.subs_w and self.subs_h else -1)
         if not self.isseq:
             brand='heic' if ff_pixfmt=='yuv420p' else 'heix'
         else:
@@ -284,9 +284,9 @@ class makeheic:
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
-            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -an -sn -map_metadata -1 -map_chapters -1 -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -fps_mode vfr -x265-params sao={SAO}:rect=0:ctu=32:b-intra=1:weightb=1:strong-intra-smoothing=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.mp4" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,ST=self.trim,MED=' -f concat -safe 0' if self.medium_img else '')
+            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -an -sn -map_metadata -1 -map_chapters -1 -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -fps_mode vfr -x265-params sao={SAO}:rect=0:ctu=32:b-intra=1:weightb=1:strong-intra-smoothing=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} -tag:v hvc1 "{TMPF}\make.heic.{PID}.mp4" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,ST=self.trim,MED=' -f concat -safe 0' if self.medium_img else '')
 
-            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add "make.heic.{PID}.mp4" -add-image :primary:ref{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.mp4"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder,BN=brand)
+            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add "make.heic.{PID}.mp4":hdlr=pict -add-image :primary:ref{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.mp4"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder,BN=brand)
             if self.hwenc==None:
                 return True
 ########################################
@@ -329,9 +329,9 @@ class makeheic:
                 self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
-            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -an -sn -map_metadata -1 -map_chapters -1 -vf {PD}{SF},format={PF} -c:v {HWE} -color_range pc -colorspace {MAT_L} -qp {Q} -fps_mode vfr "{TMPF}\make.heic.{PID}.mp4" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc,ST=self.trim,MED=' -f concat -safe 0' if self.medium_img else '')
+            self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -an -sn -map_metadata -1 -map_chapters -1 -vf {PD}{SF},format={PF} -c:v {HWE} -color_range pc -colorspace {MAT_L} -qp {Q} -fps_mode vfr -tag:v hvc1 "{TMPF}\make.heic.{PID}.mp4" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc,ST=self.trim,MED=' -f concat -safe 0' if self.medium_img else '')
 
-            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add "make.heic.{PID}.mp4" -add-image :primary:ref{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.mp4"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder,BN=brand)
+            self.m4b_cmd_seq=r'cd /d {TMPF} && mp4box -add "make.heic.{PID}.mp4":hdlr=pict -add-image :primary:ref{ICC} -brand {BN} -new "{OUT}" && del "make.heic.{PID}.mp4"'.format(OUT=self.out_fp,ICC=icc_opt,PID=self.pid,TMPF=self.temp_folder,BN=brand)
 
             return True
 ########################################
@@ -562,6 +562,6 @@ if __name__ == '__main__':
                 except:
                     pass
 
-    if fail: print(fail,'conversion(s) failed.')
+    if fail: print(fail,'conversion(s) failed.', file=sys.stderr)
     # if not args.s:
     #     input('enter to exit.')
