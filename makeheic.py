@@ -160,11 +160,11 @@ class makeheic:
             self.mat_s='gbr'
             self.mat_a='bt709'
         elif probe_mat and self.mat==None:
-            self.mat_l=('smpte170m' if probe_mat.group(0)=='bt470bg' else 'bt709')
-            self.mat_s=('170m' if probe_mat.group(0)=='bt470bg' else '709')
+            self.mat_l=('bt709' if probe_mat.group(0)=='bt709' else 'smpte170m')
+            self.mat_s=('709' if probe_mat.group(0)=='bt709' else '170m')
         else:
-            self.mat_l=('smpte170m' if self.mat=='bt601' else 'bt709')
-            self.mat_s=('170m' if self.mat=='bt601' else '709')
+            self.mat_l=('bt709' if self.mat=='bt709' else 'smpte170m')
+            self.mat_s=('709' if self.mat=='bt709' else '170m')
 
         probe_resolution = re.search('[0-9]+x[0-9]+',probe_result).group(0).split('x')
         self.probe_res_w=int(probe_resolution[0])
