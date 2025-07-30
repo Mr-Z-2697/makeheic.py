@@ -53,6 +53,9 @@ class makeheic:
             if grid[0]=='+':
                 self.gridF=True
                 grid=grid[1:]
+            if grid[0]=='n':
+                self.gridN=True
+                grid=grid[1:]
             g=grid.split('x')
             if len(g)==1:
                 self.gw=self.gh=int(g[0])
@@ -174,10 +177,10 @@ class makeheic:
 
         if self.grid:
             width,height=[self.probe_res_w,self.probe_res_h] if self.scale[0]==self.scale[1]==1 else [int(self.probe_res_w*self.scale[0]),int(self.probe_res_h*self.scale[1])]
-            self.g_columns=math.ceil(width/self.gw)
-            self.g_rows=math.ceil(height/self.gh)
-            self.g_padded_w=self.g_columns*self.gw
-            self.g_padded_h=self.g_rows*self.gh
+            self.g_columns=math.ceil(width/self.gw) if not self.gridN else self.gw
+            self.g_rows=math.ceil(height/self.gh) if not self.gridN else self.gh
+            self.g_padded_w=self.g_columns*self.gw if not self.gridN else math.ceil(width/self.g_columns)*self.g_columns
+            self.g_padded_h=self.g_rows*self.gh if not self.gridN else math.ceil(height/self.g_rows)*self.g_rows
             self.items=self.g_columns*self.g_rows
         else:
             self.g_columns=self.g_rows=self.g_padded_h=self.g_padded_w=self.items=1
