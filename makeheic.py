@@ -50,6 +50,7 @@ class makeheic:
         if grid:
             self.grid=True
             self.gridF=False
+            self.gridN=False
             if grid[0]=='+':
                 self.gridF=True
                 grid=grid[1:]
