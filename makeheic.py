@@ -84,35 +84,8 @@ class makeheic:
         probe_result = '\n'.join(probe_result.split('\n')[1:])
 
         if re.search('Could not find codec parameters for stream [0-9]* \\(Video: webp',probe_result):
-            webpmux=subprocess.run(r'webpmux -info "{INP}"'.format(INP=self.in_fp),shell=True,stdout=subprocess.PIPE)
-            if webpmux.returncode:
-                print('webp_anim: webpmux info failed', file=sys.stderr)
-                return False
-            webp_info=webpmux.stdout.decode()
-            if 'animation' in webp_info:
-                webp_frames=webp_info.splitlines()[5:]
-                webp_frames_dur=[i.split()[6] for i in webp_frames]
-                with open(r'{OUT}.{PID}.concat'.format(OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid),'w') as _c_f:
-                    for i,j in enumerate(webp_frames_dur):
-                        _c_f.write("file '{OUT}.{PID}.{I:04d}.pam'\nduration {DUR}\n".format(DUR=float(j)/1000,I=i,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid))
-                    #Most video players immediately stop/exit/loop just at beginning of last frame while it should last longer... if you want to counter that...
-                    #(yes, animated heif is just a normal mp4 with a video track and a thumbnail image item (maybe it's even optional)
-                    #that can be played like a normal mp4, if what I thought and done here is correct)
-                    # if len(webp_frames_dur)>1:
-                    #     _c_f.write("file '{OUT}.{PID}.{I}.png'\nduration {DUR}\n".format(DUR=1/1000,I=i,OUT=r'{TMPF}\make.heic'.format(TMPF=self.temp_folder),PID=self.pid))
-            else:
-                print('webp_anim: shit went very wrong', file=sys.stderr)
-                return False
-
-            #Quality option only affects compression level for png. 1 is the least compress one can get with IM. Intermedia image doesn't need high compress, but 10 is a nice tradeoff I suppose.
-            #In fact, with webpmux I can extract frames "losslessly" but... I think it can't extract all frames in one time, that means run it multiple times? Not my favorite, at least for now.
-            if subprocess.run(r'anim_dump -pam -folder "{TMPF}" -prefix "{OUT}.{PID}." "{INP}"'.format(TMPF=self.temp_folder,INP=self.in_fp,OUT=r'make.heic',PID=self.pid),shell=True).returncode:
-                print('webp_anim: anim_dump extract failed', file=sys.stderr)
-                return False
-            self.src_fp=self.in_fp
-            self.in_fp=os.path.abspath(f'{self.temp_folder}\\make.heic.{self.pid}.concat')
-            self.medium_img=True
-            return self.run_probe()
+            print(r'probably animated webp, update you ffmpeg dude.', file=sys.stderr)
+            return False
 
         #Use extra characters to hopefully ensure that it's grabbing what I want.
         self.probe_codec = re.search('Video: ([a-z0-9A-Z]+)',probe_result,re.M)
