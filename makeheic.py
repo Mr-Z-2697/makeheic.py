@@ -248,12 +248,12 @@ class makeheic:
 
         if self.thumbnail:
             if self.hwenc==None:
-                tmbn=r' -vf scale={W}:-2,{PD}{SF},format={PF} -map v:0 -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.thumb.{PID}.hevc"'
+                tmbn=r' -vf scale={W}:-2,{PD}{SF},format={PF} -map v:0 -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.thumb.{PID}.mp4"'
             else:
-                tmbn=r' -vf scale={W}:-2,{PD}{SF},format={PF} -map v:0 -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.thumb.{PID}.hevc"'
+                tmbn=r' -vf scale={W}:-2,{PD}{SF},format={PF} -map v:0 -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.thumb.{PID}.mp4"'
             tmbn=tmbn.format(W=self.thumbnail,PD=pad,SF=scale_filter,PF=ff_pixfmt,Q=self.crf,MAT_L=self.mat_l,SAO=sao,PRDO=prdo,CO=coffs,XP=self.xp,TMPF=self.temp_folder,PID=self.pid,HWE=self.hwenc)
-            tmbn_m4b=r'-add-image "{TMPF}\make.heic.thumb.{PID}.hevc":hidden:ref=thmb,{MID} '.format(TMPF=self.temp_folder,PID=self.pid,MID=self.items+1)
-            tmbn_del=r' && del "make.heic.thumb.{PID}.hevc"'.format(PID=self.pid)
+            tmbn_m4b=r'-add-image "{TMPF}\make.heic.thumb.{PID}.mp4":hidden:ref=thmb,{MID} '.format(TMPF=self.temp_folder,PID=self.pid,MID=self.items+1)
+            tmbn_del=r' && del "make.heic.thumb.{PID}.mp4"'.format(PID=self.pid)
         else:
             tmbn=''
             tmbn_m4b=''
@@ -265,27 +265,27 @@ class makeheic:
         #This isseq thing looks stupid but it's a lot easier for me
         if not self.isseq:
             if not self.grid or (self.items==1 and not self.gridF):
-                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.mp4"{TMBN} -y'
 
-                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
+                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.mp4":primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.mp4"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v libx265 -preset 6 ' + alpha_quality_control + r'-x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_A}:transfer=iec61966-2-1:no-info=1{XPAL}{XP} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v libx265 -preset 6 -crf {Q} -x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.mp4" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v libx265 -preset 6 ' + alpha_quality_control + r'-x265-params sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_A}:transfer=iec61966-2-1:no-info=1{XPAL}{XP} "{TMPF}\make.heic.alpha.{PID}.mp4"{TMBN} -y'
 
-                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
+                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.mp4":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.mp4":ref=auxl,1:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.mp4" && del "make.heic.{PID}.mp4"{TMBD}'
             else:
-                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,{SF},format={PF} -fps_mode vfr -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,{SF},format={PF} -fps_mode vfr -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.mp4"{TMBN} -y'
 
                 for x in range(1,self.items+1):
                     refs+=f'ref=dimg,{x}:'
 
-                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
+                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.mp4":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.mp4"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,format={PF} -fps_mode vfr -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,format={PF2} -fps_mode vfr -c:v libx265 -preset 6 ' + alpha_quality_control + r'-x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_A}:transfer=iec61966-2-1:no-info=1{XPAL}{XP} "{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,format={PF} -fps_mode vfr -c:v libx265 -preset 6 -crf {Q} -x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} "{TMPF}\make.heic.{PID}.mp4" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,format={PF2} -fps_mode vfr -c:v libx265 -preset 6 ' + alpha_quality_control + r'-x265-params keyint=1:sao={SAO}:ref=1:rc-lookahead=0:bframes=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs=1:crqpoffs=1:range=full:colormatrix={MAT_A}:transfer=iec61966-2-1:no-info=1{XPAL}{XP} "{TMPF}\make.heic.alpha.{PID}.mp4"{TMBN} -y'
 
                 for x in range(self.items+2,self.items*2+2):
                     refs2+=f'ref=dimg,{x}:'
 
-                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
+                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.mp4":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.mp4":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.mp4" && del "make.heic.{PID}.mp4"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
             self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -an -sn -map_metadata -1 -map_chapters -1 -vf {PD}{SF},format={PF} -c:v libx265 -preset 6 -crf {Q} -fps_mode vfr -x265-params sao={SAO}:rect=0:ctu=32:b-intra=1:weightb=1:strong-intra-smoothing=0:aq-mode=1:psy-rdoq={PRDO}:cbqpoffs={CO}:crqpoffs={CO}:range=full:colormatrix={MAT_L}:transfer=iec61966-2-1:no-info=1{XP} -tag:v hvc1 "{TMPF}\make.heic.{PID}.mp4" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,ST=self.trim,MED=' -f concat -safe 0' if self.medium_img else '')
@@ -308,29 +308,29 @@ class makeheic:
         alpha_quality_control='' if self.acrf==100 else r'-qp {Q2} '
         if not self.isseq:
             if not self.grid or (self.items==1 and not self.gridF):
-                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.mp4"{TMBN} -y'
 
-                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
+                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.mp4":primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.mp4"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 ' + alpha_quality_control + r'"{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {PD}{SF},format={PF} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -qp {Q} "{TMPF}\make.heic.{PID}.mp4" -y -map v:0 -vf {PD}{SFA}format={PF2} -frames 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 ' + alpha_quality_control + r'"{TMPF}\make.heic.alpha.{PID}.mp4"{TMBN} -y'
 
-                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":ref=auxl,1:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
+                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.mp4":primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.mp4":ref=auxl,1:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.mp4" && del "make.heic.{PID}.mp4"{TMBD}'
             else:
-                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,{SF},format={PF} -fps_mode vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q} "{TMPF}\make.heic.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_img=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,{SF},format={PF} -fps_mode vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q} "{TMPF}\make.heic.{PID}.mp4"{TMBN} -y'
 
                 refs=''
                 for x in range(1,self.items+1):
                     refs+=f'ref=dimg,{x}:'
 
-                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.hevc"{TMBD}'
+                self.m4b_cmd_img=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.mp4":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.{PID}.mp4"{TMBD}'
 
-                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,format={PF} -fps_mode vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q} "{TMPF}\make.heic.{PID}.hevc" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,format={PF2} -fps_mode vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 ' + alpha_quality_control + r'"{TMPF}\make.heic.alpha.{PID}.hevc"{TMBN} -y'
+                self.ff_cmd_a=r'ffmpeg -hide_banner{HWD} -r 1{MED} -i "{INP}" -vf {SF},pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,format={PF} -fps_mode vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 -qp {Q} "{TMPF}\make.heic.{PID}.mp4" -y -map v:0 -vf {SFA}pad={PW}:{PH},untile={UNT},setpts=N/TB,fps=1,format={PF2} -fps_mode vfr -r 1 -c:v {HWE} -color_range pc -colorspace {MAT_L} -bf 0 -g 1 ' + alpha_quality_control + r'"{TMPF}\make.heic.alpha.{PID}.mp4"{TMBN} -y'
 
                 refs2=''
                 for x in range(self.items+2,self.items*2+2):
                     refs2+=f'ref=dimg,{x}:'
 
-                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.hevc":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.hevc" && del "make.heic.{PID}.hevc"{TMBD}'
+                self.m4b_cmd_a=r'cd /d {TMPF} && mp4box -add-image "make.heic.{PID}.mp4":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS}primary:image-size={WxH}{ICC} -add-image "make.heic.alpha.{PID}.mp4":time=-1:hidden -add-derived-image :type=grid:image-grid-size={GS}:{REFS2}ref=auxl,{GID}:alpha:image-size={WxH} {TMBN}-brand {BN} -new "{OUT}" && del "make.heic.alpha.{PID}.mp4" && del "make.heic.{PID}.mp4"{TMBD}'
         else:
             #Totally experimental, there's not even any decent pic viewer can decode it so don't expect it to work well. However it is possible to open it with normal video player.
             self.ff_cmd_seq=r'ffmpeg -hide_banner{HWD} -probesize 100M{ST}{MED} -i "{INP}" -an -sn -map_metadata -1 -map_chapters -1 -vf {PD}{SF},format={PF} -c:v {HWE} -color_range pc -colorspace {MAT_L} -qp {Q} -fps_mode vfr -tag:v hvc1 "{TMPF}\make.heic.{PID}.mp4" -y'.format(INP=self.in_fp,PD=pad,SF=scale_filter,Q=self.crf,MAT_L=self.mat_l,PF=ff_pixfmt,CO=coffs,PID=self.pid,SAO=sao,PRDO=prdo,XP=self.xp,TMPF=self.temp_folder,HWD=hwd,HWE=self.hwenc,ST=self.trim,MED=' -f concat -safe 0' if self.medium_img else '')
