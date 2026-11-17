@@ -88,14 +88,14 @@ class makeheic:
             return False
 
         #Use extra characters to hopefully ensure that it's grabbing what I want.
-        self.probe_codec = re.search('Video: ([a-z0-9A-Z]+)',probe_result,re.M)
+        self.probe_codec = re.search('Video: ([a-z0-9A-Z_]+)',probe_result,re.M)
         if self.probe_codec:
             self.probe_codec=self.probe_codec.group(1)
             #I'm kinda lazy, feel free to add whatever ffmpeg supports.
-            if not self.probe_codec in ('jpegxl','webp','png','mjpeg','bmp','ppm','pam','tiff','gif','apng','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
-                print(r'input file "{INP}" codec not supported.'.format(INP=self.in_fp), file=sys.stderr)
+            if not self.probe_codec in ('jpegxl','webp','webp_anim','png','mjpeg','bmp','ppm','pam','tiff','gif','apng','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
+                print(r'input file "{INP}" codec "{CC}" not supported.'.format(INP=self.in_fp,CC=self.probe_codec), file=sys.stderr)
                 return False
-            elif self.probe_codec in ('gif','apng','pam','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
+            elif self.probe_codec in ('gif','apng','pam','webp_anim','h264','hevc','vp8','vp9','av1','mpeg4','mpeg2video','wmv1','wmv2','wmv3'):
                 self.isseq=subprocess.Popen(r'ffprobe -hide_banner -count_packets -print_format csv -select_streams V -show_entries stream=nb_read_packets -threads 4{MED} -i "{INP}"'.format(INP=self.in_fp,MED=' -f concat -safe 0' if self.medium_img else ''),shell=True,stdout=subprocess.PIPE).stdout.read()
                 self.isseq = not self.isseq==b'stream,1\r\n'
             else:
